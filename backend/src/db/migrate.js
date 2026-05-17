@@ -64,6 +64,30 @@ async function migrate() {
       employee_goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL,
       weightage_override NUMERIC
     );
+
+    CREATE TABLE IF NOT EXISTS goal_achievements (
+      id SERIAL PRIMARY KEY,
+      goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+      quarter VARCHAR(5) NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+      cycle_year INTEGER NOT NULL,
+      actual_value NUMERIC,
+      actual_date DATE,
+      status VARCHAR(20) NOT NULL DEFAULT 'not_started' CHECK (status IN ('not_started','on_track','completed')),
+      progress_score NUMERIC,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(goal_id, quarter, cycle_year)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_checkins (
+      id SERIAL PRIMARY KEY,
+      goal_sheet_id INTEGER NOT NULL REFERENCES goal_sheets(id) ON DELETE CASCADE,
+      manager_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      quarter VARCHAR(5) NOT NULL,
+      cycle_year INTEGER NOT NULL,
+      comment TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(goal_sheet_id, quarter, cycle_year)
+    );
   `);
 
   console.log('Migration complete.');

@@ -1,10 +1,11 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar({ bellRef }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   function handleLogout() {
     logout();
@@ -17,9 +18,34 @@ export default function Navbar({ bellRef }) {
     admin:    'bg-purple-100 text-purple-700',
   };
 
+  function navLink(to, label) {
+    const active = location.pathname.startsWith(to);
+    return (
+      <button onClick={() => navigate(to)}
+        className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+          active ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-800'
+        }`}>
+        {label}
+      </button>
+    );
+  }
+
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <span className="font-bold text-gray-800 text-lg">Goal Tracker</span>
+      <div className="flex items-center gap-4">
+        <span className="font-bold text-gray-800 text-lg">Goal Tracker</span>
+        {user?.role === 'employee' && (
+          <div className="flex gap-1">
+            {navLink('/employee', 'My Goals')}
+            {navLink('/employee/checkin', 'Check-in')}
+          </div>
+        )}
+        {user?.role === 'manager' && (
+          <div className="flex gap-1">
+            {navLink('/manager', 'Team Goals')}
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-3">
         {user?.role === 'admin' && <NotificationBell ref={bellRef} />}
         <span className="text-sm text-gray-600">{user?.name}</span>

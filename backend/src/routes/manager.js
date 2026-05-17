@@ -2,6 +2,8 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 
+const CYCLE_YEAR = new Date().getFullYear();
+
 // List all team members' sheets
 router.get('/team-sheets', authenticate, requireRole('manager'), async (req, res) => {
   const { rows } = await pool.query(
@@ -108,6 +110,59 @@ router.post('/team-sheets/:id/return', authenticate, requireRole('manager'), asy
   );
 
   res.json({ message: 'Sheet returned for rework' });
+});
+
+// Get check-in data for a sheet — goals + achievements + existing comment for a quarter
+router.get('/checkins/:sheetId', authenticate, requireRole('manager'), async (req, res) => {
+  const { quarter = 'Q1' } = req.query;
+  const sheet = await getTeamSheet(req.params.sheetId, req.user.id);
+  if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
+
+  const { rows: goals } = await pool.query(
+    `SELECT g.*, ta.name AS thrust_area_name,
+       ga.actual_value, ga.actual_date, ga.status AS achievement_status,
+       ga.progress_score
+     FROM goals g
+     LEFT JOIN thrust_areas ta ON ta.id = g.thrust_area_id
+     LEFT JOIN goal_achievements ga ON ga.goal_id = g.id AND ga.quarter = $2 AND ga.cycle_year = $3
+     WHERE g.goal_sheet_id = $1
+     ORDER BY g.id`,
+    [sheet.id, quarter, CYCLE_YEAR]
+  );
+
+  const { rows: checkins } = await pool.query(
+    `SELECT * FROM manager_checkins
+     WHERE goal_sheet_id = $1 AND cycle_year = $2
+     ORDER BY quarter`,
+    [sheet.id, CYCLE_YEAR]
+  );
+
+  res.json({ ...sheet, goals, checkins });
+});
+
+// Submit manager check-in comment
+router.post('/checkins', authenticate, requireRole('manager'), async (req, res) => {
+  const { goal_sheet_id, quarter, comment } = req.body;
+  if (!goal_sheet_id || !quarter || !comment?.trim()) {
+    return res.status(400).json({ error: 'goal_sheet_id, quarter, and comment are required' });
+  }
+  if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+    return res.status(400).json({ error: 'quarter must be Q1, Q2, Q3, or Q4' });
+  }
+
+  const sheet = await getTeamSheet(goal_sheet_id, req.user.id);
+  if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
+
+  const { rows } = await pool.query(
+    `INSERT INTO manager_checkins (goal_sheet_id, manager_id, quarter, cycle_year, comment)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (goal_sheet_id, quarter, cycle_year) DO UPDATE SET
+       comment = EXCLUDED.comment,
+       created_at = NOW()
+     RETURNING *`,
+    [goal_sheet_id, req.user.id, quarter, CYCLE_YEAR, comment.trim()]
+  );
+  res.json(rows[0]);
 });
 
 // Helpers
