@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../db/pool');
 
 function authenticate(req, res, next) {
   const header = req.headers.authorization;
@@ -22,4 +23,25 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authenticate, requireRole };
+function requireWindow(action) {
+  return async (req, res, next) => {
+    const year = new Date().getFullYear();
+    const { rows } = await pool.query(
+      `SELECT * FROM check_in_windows
+       WHERE action=$1 AND cycle_year=$2
+       AND opens_at <= CURRENT_DATE AND closes_at >= CURRENT_DATE`,
+      [action, year]
+    );
+    if (!rows.length) {
+      const labels = { goal_setting: 'Goal Setting (May–Jun)', checkin: 'a Check-in' };
+      return res.status(403).json({
+        error: `This action is only available during the ${labels[action]} window. The portal is currently between cycles.`,
+        window_closed: true
+      });
+    }
+    req.activeWindow = rows[0];
+    next();
+  };
+}
+
+module.exports = { authenticate, requireRole, requireWindow };

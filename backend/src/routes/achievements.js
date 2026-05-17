@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requireWindow } = require('../middleware/auth');
 
 const CYCLE_YEAR = new Date().getFullYear();
 
@@ -50,7 +50,7 @@ router.get('/mine', authenticate, requireRole('employee'), async (req, res) => {
 });
 
 // POST /api/achievements — upsert achievement + compute score + sync shared goals
-router.post('/', authenticate, requireRole('employee'), async (req, res) => {
+router.post('/', authenticate, requireRole('employee'), requireWindow('checkin'), async (req, res) => {
   const { goal_id, quarter, actual_value, actual_date, status } = req.body;
 
   if (!goal_id || !quarter || !status) {

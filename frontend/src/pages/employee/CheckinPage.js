@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import ProgressBar from '../../components/ProgressBar';
+import { useWindow } from '../../context/WindowContext';
 
 const QUARTERS = [
   { key: 'Q1', label: 'Q1 (Jul–Sep)', period: 'July – September' },
@@ -51,6 +52,9 @@ export default function CheckinPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [noSheet, setNoSheet] = useState(false);
+
+  const { activeWindow } = useWindow();
+  const windowOpen = activeWindow?.action === 'checkin';
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +125,13 @@ export default function CheckinPage() {
         {message && <p className="text-green-600 bg-green-50 p-3 rounded-lg text-sm mb-4">{message}</p>}
         {error   && <p className="text-red-500 bg-red-50 p-3 rounded-lg text-sm mb-4">{error}</p>}
 
+        {/* Window closed notice */}
+        {!windowOpen && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4">
+            Check-in inputs are disabled. Achievement logging is only available during a Check-in window (Q1: Jul–Sep, Q2: Oct–Dec, Q3: Jan–Feb, Q4: Mar–Apr).
+          </div>
+        )}
+
         {/* Quarter tabs */}
         <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg w-fit">
           {QUARTERS.map(q => (
@@ -179,7 +190,7 @@ export default function CheckinPage() {
                       <label className="block text-xs text-gray-500 mb-1">Actual Value</label>
                       <input
                         type="number"
-                        disabled={isSharedRecipient}
+                        disabled={isSharedRecipient || !windowOpen}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
                         value={inp.actual_value ?? ''}
                         onChange={e => setField(goal.id, 'actual_value', e.target.value)}
@@ -192,7 +203,7 @@ export default function CheckinPage() {
                       <label className="block text-xs text-gray-500 mb-1">Actual Completion Date</label>
                       <input
                         type="date"
-                        disabled={isSharedRecipient}
+                        disabled={isSharedRecipient || !windowOpen}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                         value={inp.actual_date ?? ''}
                         onChange={e => setField(goal.id, 'actual_date', e.target.value)}
@@ -225,7 +236,7 @@ export default function CheckinPage() {
 
                 <button
                   onClick={() => save(goal)}
-                  disabled={saving[goal.id]}
+                  disabled={saving[goal.id] || !windowOpen}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving[goal.id] ? 'Saving…' : `Save for ${QUARTERS.find(q => q.key === quarter)?.label}`}

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requireWindow } = require('../middleware/auth');
 
 const CYCLE_YEAR = new Date().getFullYear();
 
@@ -66,7 +66,7 @@ router.put('/goals/:id', authenticate, requireRole('manager'), async (req, res) 
 });
 
 // Approve sheet — locks all goals
-router.post('/team-sheets/:id/approve', authenticate, requireRole('manager'), async (req, res) => {
+router.post('/team-sheets/:id/approve', authenticate, requireRole('manager'), requireWindow('goal_setting'), async (req, res) => {
   const sheet = await getTeamSheet(req.params.id, req.user.id);
   if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
   if (sheet.status !== 'submitted') return res.status(400).json({ error: 'Sheet must be submitted before approval' });
@@ -95,7 +95,7 @@ router.post('/team-sheets/:id/approve', authenticate, requireRole('manager'), as
 });
 
 // Return sheet for rework
-router.post('/team-sheets/:id/return', authenticate, requireRole('manager'), async (req, res) => {
+router.post('/team-sheets/:id/return', authenticate, requireRole('manager'), requireWindow('goal_setting'), async (req, res) => {
   const sheet = await getTeamSheet(req.params.id, req.user.id);
   if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
   if (sheet.status !== 'submitted') return res.status(400).json({ error: 'Sheet must be submitted to return' });
@@ -141,7 +141,7 @@ router.get('/checkins/:sheetId', authenticate, requireRole('manager'), async (re
 });
 
 // Submit manager check-in comment
-router.post('/checkins', authenticate, requireRole('manager'), async (req, res) => {
+router.post('/checkins', authenticate, requireRole('manager'), requireWindow('checkin'), async (req, res) => {
   const { goal_sheet_id, quarter, comment } = req.body;
   if (!goal_sheet_id || !quarter || !comment?.trim()) {
     return res.status(400).json({ error: 'goal_sheet_id, quarter, and comment are required' });

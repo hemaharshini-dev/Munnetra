@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import GoalForm from '../../components/GoalForm';
+import { useWindow } from '../../context/WindowContext';
 
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-600',
@@ -54,9 +55,12 @@ export default function EmployeeGoalSheet() {
     }
   }
 
+  const { activeWindow } = useWindow();
+  const windowOpen = activeWindow?.action === 'goal_setting';
+
   const goals = sheet?.goals || [];
   const totalWeightage = goals.reduce((s, g) => s + parseFloat(g.weightage || 0), 0);
-  const isEditable = sheet && ['draft', 'rework'].includes(sheet.status);
+  const isEditable = sheet && ['draft', 'rework'].includes(sheet.status) && windowOpen;
   const canSubmit = isEditable && goals.length > 0 && Math.round(totalWeightage) === 100;
 
   return (
@@ -81,9 +85,15 @@ export default function EmployeeGoalSheet() {
         {!sheet ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center">
             <p className="text-gray-500 mb-4">No goal sheet for this cycle yet.</p>
-            <button onClick={createSheet} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+            <button
+              onClick={createSheet}
+              disabled={!windowOpen}
+              title={!windowOpen ? 'Goal creation is only available during the Goal Setting window (May–Jun)' : ''}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
               Create Goal Sheet
             </button>
+            {!windowOpen && <p className="text-xs text-gray-400 mt-2">Goal creation opens in May.</p>}
           </div>
         ) : (
           <>

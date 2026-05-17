@@ -7,6 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/achievements', require('./routes/achievements'));
+app.use('/api/checkin-windows', require('./routes/checkinWindows'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/thrust-areas', require('./routes/thrustAreas'));
 app.use('/api/goal-sheets', require('./routes/goalSheets'));

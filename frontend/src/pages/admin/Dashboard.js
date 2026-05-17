@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
+import { useWindow } from '../../context/WindowContext';
 
-const TABS = ['Sheets', 'Shared Goals', 'Audit Log'];
+const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Cycle Windows'];
 
 const STATUS_COLORS = {
   draft:     'bg-gray-100 text-gray-600',
@@ -40,11 +41,17 @@ export default function AdminDashboard() {
   // confirmUnlock: { goalId, goalTitle, isShared, reason, isManual? }
   const [confirmUnlock, setConfirmUnlock] = useState(null);
 
+  const { refresh: refreshWindow } = useWindow();
+  const [windows, setWindows] = useState([]);
+  const [windowEdits, setWindowEdits] = useState({});
+
   useEffect(() => {
     loadSheets();
     api.get('/admin/employees').then(r => setEmployees(r.data));
     api.get('/thrust-areas').then(r => setThrustAreas(r.data));
   }, []);
+
+  useEffect(() => { if (tab === 'Cycle Windows') loadWindows(); }, [tab]);
 
   async function loadSheets() {
     const params = new URLSearchParams();
@@ -52,6 +59,38 @@ export default function AdminDashboard() {
     if (filters.department) params.set('department', filters.department);
     const { data } = await api.get(`/admin/goal-sheets?${params}`);
     setSheets(data);
+  }
+
+  async function loadWindows() {
+    const { data } = await api.get('/checkin-windows');
+    setWindows(data);
+    const edits = {};
+    data.forEach(w => { edits[w.id] = { opens_at: w.opens_at.slice(0,10), closes_at: w.closes_at.slice(0,10) }; });
+    setWindowEdits(edits);
+  }
+
+  async function saveWindow(id) {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/checkin-windows/${id}`, windowEdits[id]);
+      setMessage('Window updated.');
+      loadWindows();
+      refreshWindow();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Update failed');
+    }
+  }
+
+  async function activateNow(id) {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/checkin-windows/${id}/activate`);
+      setMessage('Window set as active.');
+      loadWindows();
+      refreshWindow();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Activation failed');
+    }
   }
 
   async function loadAudit() {
@@ -349,6 +388,70 @@ export default function AdminDashboard() {
             </table>
           </div>
         )}
+
+        {/* ── Cycle Windows Tab ── */}
+        {tab === 'Cycle Windows' && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Period</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Opens</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Closes</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {windows.map(w => {
+                  const today = new Date();
+                  const isActive = new Date(w.opens_at) <= today && new Date(w.closes_at) >= today;
+                  const edit = windowEdits[w.id] || {};
+                  return (
+                    <tr key={w.id} className={isActive ? 'bg-blue-50' : ''}>
+                      <td className="px-4 py-3 font-medium text-gray-800">{w.label}</td>
+                      <td className="px-4 py-3">
+                        {isActive
+                          ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                          : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="date" className="border border-gray-300 rounded px-2 py-1 text-xs"
+                          value={edit.opens_at || ''}
+                          onChange={e => setWindowEdits(prev => ({ ...prev, [w.id]: { ...prev[w.id], opens_at: e.target.value } }))} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="date" className="border border-gray-300 rounded px-2 py-1 text-xs"
+                          value={edit.closes_at || ''}
+                          onChange={e => setWindowEdits(prev => ({ ...prev, [w.id]: { ...prev[w.id], closes_at: e.target.value } }))} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          w.action === 'goal_setting' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                        }`}>{w.action === 'goal_setting' ? 'Goal Setting' : 'Check-in'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => saveWindow(w.id)}
+                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">Save</button>
+                          {!isActive && (
+                            <button onClick={() => activateNow(w.id)}
+                              className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 whitespace-nowrap">Set Active Now</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+              <p className="text-xs text-gray-400">Edit open/close dates and click Save. Use "Set Active Now" to immediately open a window for demo purposes.</p>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* ── Confirmation Popup ── */}

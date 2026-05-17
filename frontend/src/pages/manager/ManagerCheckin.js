@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import ProgressBar from '../../components/ProgressBar';
+import { useWindow } from '../../context/WindowContext';
 
 const QUARTERS = [
   { key: 'Q1', label: 'Q1 (Jul–Sep)', period: 'July – September' },
@@ -26,6 +27,9 @@ export default function ManagerCheckin() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const { activeWindow } = useWindow();
+  const windowOpen = activeWindow?.action === 'checkin';
 
   const load = useCallback(async () => {
     const { data: res } = await api.get(`/manager/checkins/${sheetId}?quarter=${quarter}`);
@@ -148,6 +152,13 @@ export default function ManagerCheckin() {
               ))}
             </div>
 
+            {/* Window closed notice */}
+            {!windowOpen && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4">
+                Check-in submission is only available during a Check-in window (Q1: Jul–Sep, Q2: Oct–Dec, Q3: Jan–Feb, Q4: Mar–Apr).
+              </div>
+            )}
+
             {/* Check-in comment */}
             <div className="bg-white rounded-xl shadow-sm p-5">
               <h2 className="font-semibold text-gray-800 mb-1">
@@ -165,7 +176,7 @@ export default function ManagerCheckin() {
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                   />
-                  <button onClick={submitCheckin} disabled={saving}
+                  <button onClick={submitCheckin} disabled={saving || !windowOpen}
                     className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {saving ? 'Saving…' : 'Update Check-in'}
                   </button>
@@ -180,7 +191,7 @@ export default function ManagerCheckin() {
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                   />
-                  <button onClick={submitCheckin} disabled={saving}
+                  <button onClick={submitCheckin} disabled={saving || !windowOpen}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
                     {saving ? 'Submitting…' : `Submit ${QUARTERS.find(q => q.key === quarter)?.label} Check-in`}
                   </button>

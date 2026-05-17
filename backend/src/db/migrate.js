@@ -88,6 +88,17 @@ async function migrate() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(goal_sheet_id, quarter, cycle_year)
     );
+
+    CREATE TABLE IF NOT EXISTS check_in_windows (
+      id SERIAL PRIMARY KEY,
+      period VARCHAR(30) NOT NULL,
+      label VARCHAR(60) NOT NULL,
+      opens_at DATE NOT NULL,
+      closes_at DATE NOT NULL,
+      cycle_year INTEGER NOT NULL,
+      action VARCHAR(20) NOT NULL CHECK (action IN ('goal_setting','checkin')),
+      UNIQUE(period, cycle_year)
+    );
   `);
 
   console.log('Migration complete.');

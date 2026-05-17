@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requireWindow } = require('../middleware/auth');
 
 const CYCLE_YEAR = new Date().getFullYear();
 
@@ -17,7 +17,7 @@ router.get('/mine', authenticate, requireRole('employee'), async (req, res) => {
   res.json(rows[0] || null);
 });
 
-router.post('/', authenticate, requireRole('employee'), async (req, res) => {
+router.post('/', authenticate, requireRole('employee'), requireWindow('goal_setting'), async (req, res) => {
   const existing = await pool.query(
     'SELECT id FROM goal_sheets WHERE employee_id=$1 AND cycle_year=$2',
     [req.user.id, CYCLE_YEAR]
@@ -32,7 +32,7 @@ router.post('/', authenticate, requireRole('employee'), async (req, res) => {
 });
 
 // Submit sheet for approval
-router.post('/:id/submit', authenticate, requireRole('employee'), async (req, res) => {
+router.post('/:id/submit', authenticate, requireRole('employee'), requireWindow('goal_setting'), async (req, res) => {
   const sheet = await getOwnSheet(req.params.id, req.user.id);
   if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
   if (!['draft', 'rework'].includes(sheet.status)) {

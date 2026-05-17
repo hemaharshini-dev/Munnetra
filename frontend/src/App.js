@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { WindowProvider } from './context/WindowContext';
 import Login from './pages/Login';
 import EmployeeGoalSheet from './pages/employee/GoalSheet';
 import CheckinPage from './pages/employee/CheckinPage';
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <WindowProvider>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
@@ -38,6 +40,7 @@ export default function App() {
           <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </WindowProvider>
       </BrowserRouter>
     </AuthProvider>
   );
