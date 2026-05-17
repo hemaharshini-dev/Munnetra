@@ -1,0 +1,7 @@
+Evaluation Criteria
+
+Functionality of the Portal – How effectively the solution works and delivers expected outcomes
+Adherence to the Problem Statement – Alignment with requirements and completeness of the solution
+User Friendliness – Ease of navigation, UI/UX, and overall user experience
+Technical Robustness – Presence of bugs, stability, and performance of the portal
+Cost Optimization – Efficiency of the solution in terms of infrastructure and resource usage
