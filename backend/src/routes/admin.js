@@ -80,4 +80,77 @@ router.get('/employees', authenticate, requireRole('admin', 'manager'), async (r
   res.json(rows);
 });
 
+// Achievement report — planned vs actual for all employees, all quarters
+router.get('/achievement-report', authenticate, requireRole('admin'), async (req, res) => {
+  const { department, cycle_year } = req.query;
+  const year = parseInt(cycle_year) || new Date().getFullYear();
+
+  let baseQuery = `
+    SELECT
+      u.name AS employee_name, u.email, u.department,
+      u.manager_id,
+      g.id AS goal_id, g.title AS goal_title, g.uom_type,
+      g.target_value, g.target_date, g.weightage,
+      ta.name AS thrust_area,
+      ga_q1.actual_value AS q1_actual, ga_q1.actual_date AS q1_date,
+        ga_q1.status AS q1_status, ga_q1.progress_score AS q1_score,
+      ga_q2.actual_value AS q2_actual, ga_q2.actual_date AS q2_date,
+        ga_q2.status AS q2_status, ga_q2.progress_score AS q2_score,
+      ga_q3.actual_value AS q3_actual, ga_q3.actual_date AS q3_date,
+        ga_q3.status AS q3_status, ga_q3.progress_score AS q3_score,
+      ga_q4.actual_value AS q4_actual, ga_q4.actual_date AS q4_date,
+        ga_q4.status AS q4_status, ga_q4.progress_score AS q4_score
+    FROM goals g
+    JOIN goal_sheets gs ON gs.id = g.goal_sheet_id
+    JOIN users u ON u.id = gs.employee_id
+    LEFT JOIN thrust_areas ta ON ta.id = g.thrust_area_id
+    LEFT JOIN goal_achievements ga_q1 ON ga_q1.goal_id = g.id AND ga_q1.quarter='Q1' AND ga_q1.cycle_year=$1
+    LEFT JOIN goal_achievements ga_q2 ON ga_q2.goal_id = g.id AND ga_q2.quarter='Q2' AND ga_q2.cycle_year=$1
+    LEFT JOIN goal_achievements ga_q3 ON ga_q3.goal_id = g.id AND ga_q3.quarter='Q3' AND ga_q3.cycle_year=$1
+    LEFT JOIN goal_achievements ga_q4 ON ga_q4.goal_id = g.id AND ga_q4.quarter='Q4' AND ga_q4.cycle_year=$1
+    WHERE gs.cycle_year=$1 AND gs.status='approved'
+  `;
+  const params = [year];
+  if (department) { params.push(department); baseQuery += ` AND u.department=$${params.length}`; }
+  baseQuery += ' ORDER BY u.name, g.id';
+
+  const { rows } = await pool.query(baseQuery, params);
+  res.json(rows);
+});
+
+// Completion dashboard — per employee: which quarters employee + manager have completed
+router.get('/completion-dashboard', authenticate, requireRole('admin'), async (req, res) => {
+  const { department } = req.query;
+  const year = new Date().getFullYear();
+
+  let query = `
+    SELECT
+      u.id AS employee_id, u.name AS employee_name, u.email, u.department,
+      m.name AS manager_name,
+      -- Employee done: at least one achievement logged that quarter
+      BOOL_OR(ga.quarter='Q1') FILTER (WHERE ga.quarter='Q1') AS q1_employee_done,
+      BOOL_OR(ga.quarter='Q2') FILTER (WHERE ga.quarter='Q2') AS q2_employee_done,
+      BOOL_OR(ga.quarter='Q3') FILTER (WHERE ga.quarter='Q3') AS q3_employee_done,
+      BOOL_OR(ga.quarter='Q4') FILTER (WHERE ga.quarter='Q4') AS q4_employee_done,
+      -- Manager done: check-in comment submitted that quarter
+      BOOL_OR(mc.quarter='Q1') FILTER (WHERE mc.quarter='Q1') AS q1_manager_done,
+      BOOL_OR(mc.quarter='Q2') FILTER (WHERE mc.quarter='Q2') AS q2_manager_done,
+      BOOL_OR(mc.quarter='Q3') FILTER (WHERE mc.quarter='Q3') AS q3_manager_done,
+      BOOL_OR(mc.quarter='Q4') FILTER (WHERE mc.quarter='Q4') AS q4_manager_done
+    FROM users u
+    LEFT JOIN users m ON m.id = u.manager_id
+    LEFT JOIN goal_sheets gs ON gs.employee_id = u.id AND gs.cycle_year=$1 AND gs.status='approved'
+    LEFT JOIN goals g ON g.goal_sheet_id = gs.id
+    LEFT JOIN goal_achievements ga ON ga.goal_id = g.id AND ga.cycle_year=$1
+    LEFT JOIN manager_checkins mc ON mc.goal_sheet_id = gs.id AND mc.cycle_year=$1
+    WHERE u.role='employee'
+  `;
+  const params = [year];
+  if (department) { params.push(department); query += ` AND u.department=$${params.length}`; }
+  query += ' GROUP BY u.id, u.name, u.email, u.department, m.name ORDER BY u.name';
+
+  const { rows } = await pool.query(query, params);
+  res.json(rows);
+});
+
 module.exports = router;

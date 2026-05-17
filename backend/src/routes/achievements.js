@@ -86,6 +86,14 @@ router.post('/', authenticate, requireRole('employee'), requireWindow('checkin')
 
   const score = computeScore(goal.uom_type, goal.target_value, goal.target_date, actual_value, actual_date);
 
+  // Check if this is an update (existing record) for audit logging
+  const { rows: existing } = await pool.query(
+    `SELECT actual_value, actual_date, status FROM goal_achievements
+     WHERE goal_id=$1 AND quarter=$2 AND cycle_year=$3`,
+    [goal_id, quarter, CYCLE_YEAR]
+  );
+  const isUpdate = existing.length > 0;
+
   const { rows } = await pool.query(
     `INSERT INTO goal_achievements (goal_id, quarter, cycle_year, actual_value, actual_date, status, progress_score, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -98,6 +106,20 @@ router.post('/', authenticate, requireRole('employee'), requireWindow('checkin')
      RETURNING *`,
     [goal_id, quarter, CYCLE_YEAR, actual_value ?? null, actual_date ?? null, status, score]
   );
+
+  // Audit log for updates to achievements after initial save
+  if (isUpdate) {
+    const before = existing[0];
+    await pool.query(
+      `INSERT INTO goal_approvals (goal_sheet_id, action, actor_id, changed_fields)
+       VALUES ($1, 'achievement_updated', $2, $3)`,
+      [
+        goal.goal_sheet_id,
+        req.user.id,
+        JSON.stringify({ quarter, goal_id, before, after: { actual_value, actual_date, status } })
+      ]
+    );
+  }
 
   // Sync actual to all shared goal recipients
   if (!goal.is_shared) {

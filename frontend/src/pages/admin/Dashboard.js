@@ -3,7 +3,7 @@ import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import { useWindow } from '../../context/WindowContext';
 
-const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Cycle Windows'];
+const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Completion', 'Reports', 'Cycle Windows'];
 
 const STATUS_COLORS = {
   draft:     'bg-gray-100 text-gray-600',
@@ -13,10 +13,12 @@ const STATUS_COLORS = {
 };
 
 const ACTION_BADGE = {
-  approved: 'bg-green-100 text-green-700',
-  returned: 'bg-red-100 text-red-700',
-  unlocked: 'bg-orange-100 text-orange-700',
-  edited:   'bg-blue-100 text-blue-700',
+  approved:             'bg-green-100 text-green-700',
+  returned:             'bg-red-100 text-red-700',
+  unlocked:             'bg-orange-100 text-orange-700',
+  edited:               'bg-blue-100 text-blue-700',
+  checkin:              'bg-teal-100 text-teal-700',
+  achievement_updated:  'bg-indigo-100 text-indigo-700',
 };
 
 export default function AdminDashboard() {
@@ -40,6 +42,11 @@ export default function AdminDashboard() {
   const [unlockReasons, setUnlockReasons] = useState({});
   // confirmUnlock: { goalId, goalTitle, isShared, reason, isManual? }
   const [confirmUnlock, setConfirmUnlock] = useState(null);
+
+  const [reportData, setReportData] = useState([]);
+  const [reportFilters, setReportFilters] = useState({ department: '', cycle_year: new Date().getFullYear() });
+  const [completionData, setCompletionData] = useState([]);
+  const [completionDept, setCompletionDept] = useState('');
 
   const { refresh: refreshWindow } = useWindow();
   const [windows, setWindows] = useState([]);
@@ -93,12 +100,57 @@ export default function AdminDashboard() {
     }
   }
 
+  async function loadCompletion() {
+    const params = new URLSearchParams();
+    if (completionDept) params.set('department', completionDept);
+    const { data } = await api.get(`/admin/completion-dashboard?${params}`);
+    setCompletionData(data);
+  }
+
+  async function loadReport() {
+    const params = new URLSearchParams();
+    if (reportFilters.department) params.set('department', reportFilters.department);
+    if (reportFilters.cycle_year) params.set('cycle_year', reportFilters.cycle_year);
+    const { data } = await api.get(`/admin/achievement-report?${params}`);
+    setReportData(data);
+  }
+
+  function exportCSV() {
+    if (!reportData.length) return;
+    const headers = [
+      'Employee', 'Email', 'Department', 'Goal Title', 'Thrust Area', 'UoM',
+      'Target Value', 'Target Date', 'Weightage',
+      'Q1 Actual', 'Q1 Score%', 'Q1 Status',
+      'Q2 Actual', 'Q2 Score%', 'Q2 Status',
+      'Q3 Actual', 'Q3 Score%', 'Q3 Status',
+      'Q4 Actual', 'Q4 Score%', 'Q4 Status',
+    ];
+    const rows = reportData.map(r => [
+      r.employee_name, r.email, r.department, r.goal_title, r.thrust_area || '', r.uom_type,
+      r.target_value ?? '', r.target_date ? r.target_date.slice(0,10) : '', r.weightage,
+      r.q1_actual ?? '', r.q1_score != null ? Math.round(r.q1_score * 100) + '%' : '', r.q1_status || '',
+      r.q2_actual ?? '', r.q2_score != null ? Math.round(r.q2_score * 100) + '%' : '', r.q2_status || '',
+      r.q3_actual ?? '', r.q3_score != null ? Math.round(r.q3_score * 100) + '%' : '', r.q3_status || '',
+      r.q4_actual ?? '', r.q4_score != null ? Math.round(r.q4_score * 100) + '%' : '', r.q4_status || '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `achievement_report_${reportFilters.cycle_year}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function loadAudit() {
     const { data } = await api.get('/admin/audit-log');
     setAuditLog(data);
   }
 
   useEffect(() => { if (tab === 'Audit Log') loadAudit(); }, [tab]);
+  useEffect(() => { if (tab === 'Completion') loadCompletion(); }, [tab]);
+  useEffect(() => { if (tab === 'Reports') loadReport(); }, [tab]);
 
   async function openSheet(sheetId) {
     const { data } = await api.get(`/admin/goal-sheets/${sheetId}`);
@@ -387,6 +439,170 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* ── Completion Dashboard Tab ── */}
+        {tab === 'Completion' && (
+          <>
+            <div className="flex gap-3 mb-4">
+              <input
+                placeholder="Filter by department"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={completionDept}
+                onChange={e => setCompletionDept(e.target.value)}
+              />
+              <button onClick={loadCompletion} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">Filter</button>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Employee</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Manager</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Dept</th>
+                    {['Q1 (Jul–Sep)', 'Q2 (Oct–Dec)', 'Q3 (Jan–Feb)', 'Q4 (Mar–Apr)'].map(q => (
+                      <th key={q} className="text-center px-3 py-3 font-medium text-gray-600" colSpan={2}>{q}</th>
+                    ))}
+                  </tr>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th colSpan={3}></th>
+                    {[1,2,3,4].map(n => (
+                      <>
+                        <th key={`e${n}`} className="text-center px-2 py-1 text-xs text-gray-400 font-normal">Emp</th>
+                        <th key={`m${n}`} className="text-center px-2 py-1 text-xs text-gray-400 font-normal">Mgr</th>
+                      </>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {completionData.map(row => {
+                    const cell = done => done
+                      ? <span className="text-green-600 font-bold">✓</span>
+                      : <span className="text-gray-300">—</span>;
+                    return (
+                      <tr key={row.employee_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-800">{row.employee_name}</div>
+                          <div className="text-xs text-gray-400">{row.email}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-sm">{row.manager_name || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 text-sm">{row.department || '—'}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q1_employee_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q1_manager_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q2_employee_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q2_manager_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q3_employee_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q3_manager_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q4_employee_done)}</td>
+                        <td className="text-center px-2 py-3">{cell(row.q4_manager_done)}</td>
+                      </tr>
+                    );
+                  })}
+                  {completionData.length === 0 && (
+                    <tr><td colSpan={11} className="text-center py-8 text-gray-400">No data found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── Achievement Report Tab ── */}
+        {tab === 'Reports' && (
+          <>
+            <div className="flex gap-3 mb-4 items-end">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Department</label>
+                <input
+                  placeholder="All departments"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  value={reportFilters.department}
+                  onChange={e => setReportFilters(f => ({ ...f, department: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Cycle Year</label>
+                <input
+                  type="number"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28"
+                  value={reportFilters.cycle_year}
+                  onChange={e => setReportFilters(f => ({ ...f, cycle_year: e.target.value }))}
+                />
+              </div>
+              <button onClick={loadReport} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">Load</button>
+              <button
+                onClick={exportCSV}
+                disabled={!reportData.length}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-40 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Employee</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Goal</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Thrust Area</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">UoM</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Target</th>
+                    <th className="text-center px-3 py-3 font-medium text-gray-600" colSpan={2}>Q1 (Jul–Sep)</th>
+                    <th className="text-center px-3 py-3 font-medium text-gray-600" colSpan={2}>Q2 (Oct–Dec)</th>
+                    <th className="text-center px-3 py-3 font-medium text-gray-600" colSpan={2}>Q3 (Jan–Feb)</th>
+                    <th className="text-center px-3 py-3 font-medium text-gray-600" colSpan={2}>Q4 (Mar–Apr)</th>
+                  </tr>
+                  <tr className="bg-gray-50 border-b border-gray-100 text-xs text-gray-400">
+                    <th colSpan={5}></th>
+                    {[1,2,3,4].map(n => (
+                      <>
+                        <th key={`a${n}`} className="text-center px-2 py-1 font-normal">Actual</th>
+                        <th key={`s${n}`} className="text-center px-2 py-1 font-normal">Score</th>
+                      </>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {reportData.map((r, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-800">{r.employee_name}</div>
+                        <div className="text-xs text-gray-400">{r.department}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 max-w-[160px] truncate" title={r.goal_title}>{r.goal_title}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{r.thrust_area || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{r.uom_type}</td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {r.uom_type === 'timeline' ? (r.target_date?.slice(0,10) || '—') : (r.target_value ?? '—')}
+                      </td>
+                      {[['q1_actual','q1_date','q1_score','q1_status'],['q2_actual','q2_date','q2_score','q2_status'],
+                        ['q3_actual','q3_date','q3_score','q3_status'],['q4_actual','q4_date','q4_score','q4_status']
+                      ].map(([act, dt, sc, st], qi) => (
+                        <>
+                          <td key={`a${qi}`} className="text-center px-2 py-3 text-gray-600">
+                            {r.uom_type === 'timeline' ? (r[dt]?.slice(0,10) || '—') : (r[act] ?? '—')}
+                          </td>
+                          <td key={`s${qi}`} className="text-center px-2 py-3">
+                            {r[sc] != null
+                              ? <span className={`text-xs font-medium ${
+                                  r[sc] >= 0.7 ? 'text-green-600' : r[sc] >= 0.4 ? 'text-orange-500' : 'text-red-500'
+                                }`}>{Math.round(r[sc] * 100)}%</span>
+                              : <span className="text-gray-300">—</span>}
+                          </td>
+                        </>
+                      ))}
+                    </tr>
+                  ))}
+                  {reportData.length === 0 && (
+                    <tr><td colSpan={13} className="text-center py-8 text-gray-400">Click Load to fetch the report.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* ── Cycle Windows Tab ── */}

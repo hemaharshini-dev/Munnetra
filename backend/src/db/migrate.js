@@ -99,6 +99,11 @@ async function migrate() {
       action VARCHAR(20) NOT NULL CHECK (action IN ('goal_setting','checkin')),
       UNIQUE(period, cycle_year)
     );
+
+    -- Extend goal_approvals action constraint to include new Phase 2 actions
+    ALTER TABLE goal_approvals DROP CONSTRAINT IF EXISTS goal_approvals_action_check;
+    ALTER TABLE goal_approvals ADD CONSTRAINT goal_approvals_action_check
+      CHECK (action IN ('approved','returned','edited','unlocked','checkin','achievement_updated'));
   `);
 
   console.log('Migration complete.');

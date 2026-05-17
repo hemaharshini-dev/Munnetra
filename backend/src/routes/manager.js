@@ -162,6 +162,14 @@ router.post('/checkins', authenticate, requireRole('manager'), requireWindow('ch
      RETURNING *`,
     [goal_sheet_id, req.user.id, quarter, CYCLE_YEAR, comment.trim()]
   );
+
+  // Audit log
+  await pool.query(
+    `INSERT INTO goal_approvals (goal_sheet_id, action, actor_id, comment)
+     VALUES ($1, 'checkin', $2, $3)`,
+    [goal_sheet_id, req.user.id, `${quarter} check-in: ${comment.trim()}`]
+  );
+
   res.json(rows[0]);
 });
 
