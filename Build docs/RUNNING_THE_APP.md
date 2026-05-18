@@ -5,7 +5,7 @@
 ## Table of Contents
 1. [Prerequisites](#1-prerequisites)
 2. [PostgreSQL Setup](#2-postgresql-setup)
-3. [Clone & Project Structure](#3-clone--project-structure)
+3. [Project Structure](#3-project-structure)
 4. [Backend Setup](#4-backend-setup)
 5. [Frontend Setup](#5-frontend-setup)
 6. [Running the Application](#6-running-the-application)
@@ -16,12 +16,9 @@
 
 ## 1. Prerequisites
 
-Make sure the following are installed on your machine before proceeding.
-
 ### Node.js (v18 or higher)
 Download from: https://nodejs.org/en/download
 
-Verify installation:
 ```bash
 node --version   # should print v18.x.x or higher
 npm --version    # should print 9.x.x or higher
@@ -30,7 +27,6 @@ npm --version    # should print 9.x.x or higher
 ### PostgreSQL (v14 or higher)
 Download from: https://www.postgresql.org/download
 
-Verify installation:
 ```bash
 psql --version   # should print psql (PostgreSQL) 14.x or higher
 ```
@@ -42,55 +38,46 @@ psql --version   # should print psql (PostgreSQL) 14.x or higher
 ## 2. PostgreSQL Setup
 
 ### Step 1 — Start PostgreSQL
-Make sure the PostgreSQL service is running.
-
-- **Windows:** Open Services (`Win + R` → `services.msc`) → find `postgresql-x64-xx` → Start
+- **Windows:** `Win + R` → `services.msc` → find `postgresql-x64-xx` → Start
 - **Or via pgAdmin:** Open pgAdmin and connect to your local server
 
 ### Step 2 — Create the database
-
-Open a terminal and run:
 ```bash
 psql -U postgres
 ```
-
-Then inside the psql shell:
 ```sql
 CREATE DATABASE goal_tracker;
 \q
 ```
 
-> If your PostgreSQL username is not `postgres`, replace it with your actual username throughout.
-
 ### Step 3 — Note your connection details
-
-You will need:
-- **Host:** `localhost`
-- **Port:** `5432` (default)
-- **Database:** `goal_tracker`
-- **Username:** `postgres` (or your username)
-- **Password:** whatever you set during PostgreSQL installation
+- Host: `localhost`
+- Port: `5432`
+- Database: `goal_tracker`
+- Username: `postgres`
+- Password: set during PostgreSQL installation
 
 ---
 
-## 3. Clone & Project Structure
+## 3. Project Structure
 
 ```
 Munnetra/
-├── backend/          ← Node.js + Express API
+├── backend/
 │   ├── src/
-│   │   ├── db/       ← migrate.js, seed.js, pool.js
-│   │   ├── middleware/
-│   │   ├── routes/
+│   │   ├── db/          ← migrate.js, seed.js, pool.js
+│   │   ├── jobs/        ← escalationJob.js (daily cron)
+│   │   ├── middleware/  ← auth.js
+│   │   ├── routes/      ← all API routes
 │   │   └── index.js
-│   ├── .env          ← YOU MUST EDIT THIS
+│   ├── .env             ← YOU MUST EDIT THIS
 │   └── package.json
-├── frontend/         ← React + Tailwind CSS
+├── frontend/
 │   ├── src/
 │   └── package.json
+├── Build docs/          ← all planning and setup docs
 ├── .gitignore
-├── README.md
-└── Phase1_Plan.md
+└── README.md
 ```
 
 ---
@@ -111,11 +98,9 @@ DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/goal_tracker
 JWT_SECRET=any_long_random_string_here
 ```
 
-Replace:
-- `YOUR_PASSWORD` → your PostgreSQL password
-- `any_long_random_string_here` → any secret string (e.g. `mysecretkey123`)
+Replace `YOUR_PASSWORD` with your PostgreSQL password.
 
-**Example with password `admin123`:**
+**Example:**
 ```env
 PORT=5000
 DATABASE_URL=postgresql://postgres:admin123@localhost:5432/goal_tracker
@@ -129,7 +114,7 @@ npm install
 
 ### Step 4 — Run database migrations
 
-This creates all the required tables (`users`, `goals`, `goal_sheets`, etc.):
+Creates all 10 tables:
 ```bash
 npm run migrate
 ```
@@ -140,8 +125,6 @@ Migration complete.
 ```
 
 ### Step 5 — Seed demo data
-
-This inserts 3 demo users (Employee, Manager, Admin) and 7 thrust areas:
 ```bash
 npm run seed
 ```
@@ -151,7 +134,12 @@ Expected output:
 Seed complete.
 ```
 
-> You only need to run migrate and seed **once**. Re-running seed is safe — it uses `ON CONFLICT DO UPDATE` so it won't duplicate data.
+Inserts:
+- 3 demo users (employee, manager, admin)
+- 7 thrust areas
+- 5 check-in windows (Q1 set as active for demo)
+
+> Migrate and seed only need to run **once**. Re-running seed is safe — uses `ON CONFLICT DO UPDATE`.
 
 ### Step 6 — Start the backend server
 ```bash
@@ -161,9 +149,10 @@ npm run dev
 Expected output:
 ```
 Server running on port 5000
+[EscalationJob] Scheduled — runs daily at 9:00 AM
 ```
 
-The API is now live at: **http://localhost:5000**
+API live at: **http://localhost:5000**
 
 ---
 
@@ -171,30 +160,19 @@ The API is now live at: **http://localhost:5000**
 
 Open a **new terminal** (keep the backend terminal running).
 
-### Step 1 — Navigate to the frontend folder
 ```bash
 cd Munnetra/frontend
-```
-
-### Step 2 — Install dependencies
-```bash
 npm install
-```
-
-### Step 3 — Start the frontend
-```bash
 npm start
 ```
 
-This will automatically open your browser at: **http://localhost:3000**
-
-If it doesn't open automatically, navigate to `http://localhost:3000` manually.
+Opens automatically at: **http://localhost:3000**
 
 ---
 
 ## 6. Running the Application
 
-You need **two terminals running simultaneously**:
+Two terminals required simultaneously:
 
 | Terminal | Command | URL |
 |---|---|---|
@@ -205,134 +183,127 @@ You need **two terminals running simultaneously**:
 
 ## 7. Demo Walkthrough
 
-Use these credentials to explore each role:
+### Credentials
 
-| Role     | Email                | Password  |
-|----------|----------------------|-----------|
-| Employee | employee@demo.com    | demo1234  |
-| Manager  | manager@demo.com     | demo1234  |
-| Admin    | admin@demo.com       | demo1234  |
+| Role | Email | Password |
+|---|---|---|
+| Employee | employee@demo.com | demo1234 |
+| Manager | manager@demo.com | demo1234 |
+| Admin | admin@demo.com | demo1234 |
+
+---
+
+### Step 0 — Activate the Goal Setting Window (do this first)
+
+1. Log in as **admin@demo.com**
+2. Go to Admin Dashboard → **Cycle Windows** tab
+3. Click **Set Active Now** on the **Goal Setting (May–Jun)** row
+4. The WindowBanner turns green — goal creation is now open
+5. Log out
 
 ---
 
 ### Employee Journey
 
-1. Go to `http://localhost:3000` and log in as **employee@demo.com / demo1234**
-2. Click **Create Goal Sheet** to start a new sheet for the current cycle
-3. Click **+ Add Goal** and fill in:
-   - Thrust Area (dropdown)
-   - Goal Title and Description
-   - Unit of Measurement (UoM)
-   - Target Value or Date
-   - Weightage (minimum 10%)
-4. Add more goals — the **Total Weightage** counter updates live
-   - Counter turns **green** when total = 100%
-   - Counter turns **red** when total ≠ 100%
-5. Once total weightage = 100%, click **Submit for Approval**
-6. The sheet status changes to `submitted` — goals are no longer editable
+1. Log in as **employee@demo.com**
+2. Click **Create Goal Sheet**
+3. Click **+ Add Goal** — fill in Thrust Area, Title, UoM, Target, Weightage (min 10%)
+4. Add goals until total weightage = 100% (counter turns green)
+5. Click **Submit for Approval** — sheet status changes to `submitted`
 
 ---
 
-### Manager Journey
+### Manager Journey — Approval
 
-1. Log in as **manager@demo.com / demo1234**
-2. The **Team Dashboard** shows all team members and their sheet statuses
-3. Click **Review →** next to the employee who submitted
-4. On the review page:
-   - Edit **Target Value** or **Weightage** inline for any goal, then click **Save**
-   - Click **✓ Approve & Lock** to approve — all goals become locked
-   - Or click **Return for Rework** — enter a comment and send back to the employee
-5. After approval, the sheet status changes to `approved` and goals show a 🔒 lock icon
+1. Log in as **manager@demo.com**
+2. Team Dashboard shows the submitted sheet
+3. Click **Review →** — inline edit target/weightage if needed, click Save
+4. Click **✓ Approve & Lock** — goals are locked, sheet status = `approved`
 
 ---
 
-### Admin Journey
+### Admin Journey — Activate Check-in Window
 
-1. Log in as **admin@demo.com / demo1234**
-2. The Admin Dashboard has 3 tabs:
+1. Log in as **admin@demo.com**
+2. Admin Dashboard → **Cycle Windows** tab
+3. Click **Set Active Now** on **Q1 Check-in (Jul–Sep)**
+4. WindowBanner turns blue — check-in is now open
 
-   **Sheets Tab**
-   - View all goal sheets across the organisation
-   - Filter by Status or Department
-   - Unlock a locked goal by entering the Goal ID and a reason
+---
 
-   **Shared Goals Tab**
-   - Push a departmental KPI to multiple employees at once
-   - Fill in the goal details, select employees via checkboxes, click **Push Shared Goal**
-   - Selected employees will see the goal on their sheet — title and target are read-only for them
+### Employee Journey — Check-in
 
-   **Audit Log Tab**
-   - View a full history of all approval actions (approved, returned, edited, unlocked)
-   - Shows who did what and when
+1. Log in as **employee@demo.com**
+2. Click **Check-in** in the navbar
+3. Select the **Q1 (Jul–Sep)** tab
+4. For each goal: enter Actual Value or Date, select Status
+5. Click **Save for Q1 (Jul–Sep)** — progress score bar appears
+6. Score colors: green ≥ 70%, orange 40–70%, red < 40%
+
+---
+
+### Manager Journey — Check-in Review
+
+1. Log in as **manager@demo.com**
+2. Team Dashboard — Q1 badge shows employee completion status
+3. Click **Check-in →** next to the employee
+4. View Planned Target vs Actual Achievement side by side
+5. Enter a check-in comment and click **Submit Q1 (Jul–Sep) Check-in**
+
+---
+
+### Admin Journey — Full Dashboard
+
+Log in as **admin@demo.com** and explore all 8 tabs:
+
+| Tab | What to do |
+|---|---|
+| Sheets | Click any row to view goals with IDs, unlock a locked goal |
+| Shared Goals | Push a KPI to the employee — verify it appears on their sheet |
+| Audit Log | See all actions: approved, edited, checkin, achievement_updated |
+| Completion | Verify Q1 Emp ✓ and Q1 Mgr ✓ for the employee |
+| Reports | Click Load → verify data → click Export CSV |
+| Escalations | View any auto-generated escalation records, mark resolved |
+| Analytics | View all 4 charts — QoQ trends, completion rates, distribution, manager effectiveness |
+| Cycle Windows | Edit dates, Set Active Now for any window |
 
 ---
 
 ### Full End-to-End Flow
 
 ```
-Employee creates sheet
-       ↓
-Employee adds goals (total weightage = 100%)
-       ↓
-Employee submits sheet
-       ↓
-Manager reviews → edits inline if needed
-       ↓
-Manager approves → goals locked
-       ↓
-(Optional) Admin unlocks a goal → audit log entry created
-       ↓
-(Optional) Admin pushes shared goal → appears on employee sheets
+Admin  → Activate Goal Setting window
+Employee → Create sheet → Add goals (100% weightage) → Submit
+Manager → Review → Inline edit → Approve & Lock
+Admin  → Push shared goal to employee
+Admin  → Activate Q1 Check-in window
+Employee → Log actuals for all goals → Verify scores
+Manager → View planned vs actual → Submit Q1 check-in comment
+Admin  → Completion tab → Verify Q1 done
+Admin  → Reports tab → Load → Export CSV
+Admin  → Analytics tab → View all 4 charts
+Admin  → Audit Log → Verify all action types present
 ```
 
 ---
 
 ## 8. Troubleshooting
 
-### ❌ `ECONNREFUSED` or `database connection failed`
-- PostgreSQL is not running. Start the service (see Section 2, Step 1).
-- Double-check `DATABASE_URL` in `backend/.env` — password, username, and database name must be correct.
-
-### ❌ `database "goal_tracker" does not exist`
-- You haven't created the database yet. Run:
-  ```bash
-  psql -U postgres -c "CREATE DATABASE goal_tracker;"
-  ```
-
-### ❌ `npm run migrate` fails with permission error
-- Your PostgreSQL user may not have CREATE TABLE privileges. Connect as a superuser or grant privileges:
-  ```sql
-  GRANT ALL PRIVILEGES ON DATABASE goal_tracker TO postgres;
-  ```
-
-### ❌ Frontend shows blank page or routing errors
-- Make sure the backend is running on port 5000 before starting the frontend.
-- Check the browser console (F12) for CORS or network errors.
-
-### ❌ `npm install` fails
-- Delete `node_modules/` and `package-lock.json`, then retry:
-  ```bash
-  rm -rf node_modules package-lock.json
-  npm install
-  ```
-
-### ❌ Port 5000 already in use
-- Change the port in `backend/.env`:
-  ```env
-  PORT=5001
-  ```
-- Then update the API base URL in `frontend/src/api/client.js`:
-  ```js
-  baseURL: 'http://localhost:5001/api'
-  ```
-
-### ❌ Login returns "Invalid credentials"
-- The seed script hasn't been run yet. Run `npm run seed` from the `backend/` folder.
-- Or the database was reset — re-run `npm run migrate && npm run seed`.
-
-### ❌ Submit button stays disabled
-- Total weightage across all goals must equal exactly **100%**.
-- Check the weightage counter at the top of the goal sheet — it shows the current total.
+| Problem | Fix |
+|---|---|
+| `ECONNREFUSED` on backend start | PostgreSQL is not running. Start the service. |
+| `database "goal_tracker" does not exist` | Run `psql -U postgres -c "CREATE DATABASE goal_tracker;"` |
+| `Migration complete` but tables missing | Check `DATABASE_URL` in `.env` |
+| Login returns "Invalid credentials" | Run `npm run seed` from `backend/` |
+| Submit button stays disabled | Total weightage must equal exactly 100% |
+| Check-in inputs are disabled | Admin → Cycle Windows → Set Active Now on Q1 |
+| Goal creation is disabled | Admin → Cycle Windows → Set Active Now on Goal Setting |
+| Port 5000 already in use | Change `PORT` in `.env`, update `frontend/src/api/client.js` baseURL |
+| `npm install` fails | Delete `node_modules/` and `package-lock.json`, retry |
+| Shared goal actual is read-only | Expected — syncs from source owner only |
+| Analytics charts empty | Log achievements first, then click Refresh |
+| No escalations showing | Job runs at 9 AM daily — trigger conditions must be met first |
+| `[EscalationJob] Error` in console | Check DB connection and that `escalations` table exists (`npm run migrate`) |
 
 ---
 
@@ -348,7 +319,7 @@ npm run seed
 cd ../frontend
 npm install
 
-# Every time you want to run the app (2 terminals)
+# Every time you run the app (2 terminals)
 # Terminal 1
 cd backend && npm run dev
 

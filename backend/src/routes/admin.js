@@ -153,4 +153,35 @@ router.get('/completion-dashboard', authenticate, requireRole('admin'), async (r
   res.json(rows);
 });
 
+// Escalations — list with filters
+router.get('/escalations', authenticate, requireRole('admin'), async (req, res) => {
+  const { type, resolved, department } = req.query;
+  let query = `
+    SELECT e.*,
+      emp.name AS employee_name, emp.email AS employee_email, emp.department,
+      mgr.name AS manager_name
+    FROM escalations e
+    JOIN users emp ON emp.id = e.employee_id
+    LEFT JOIN users mgr ON mgr.id = e.manager_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (type) { params.push(type); query += ` AND e.type=$${params.length}`; }
+  if (resolved !== undefined) { params.push(resolved === 'true'); query += ` AND e.resolved=$${params.length}`; }
+  if (department) { params.push(department); query += ` AND emp.department=$${params.length}`; }
+  query += ' ORDER BY e.created_at DESC';
+  const { rows } = await pool.query(query, params);
+  res.json(rows);
+});
+
+// Escalations — mark resolved
+router.put('/escalations/:id/resolve', authenticate, requireRole('admin'), async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE escalations SET resolved=TRUE WHERE id=$1 RETURNING *`,
+    [req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Escalation not found' });
+  res.json(rows[0]);
+});
+
 module.exports = router;

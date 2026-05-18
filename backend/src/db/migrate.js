@@ -104,6 +104,20 @@ async function migrate() {
     ALTER TABLE goal_approvals DROP CONSTRAINT IF EXISTS goal_approvals_action_check;
     ALTER TABLE goal_approvals ADD CONSTRAINT goal_approvals_action_check
       CHECK (action IN ('approved','returned','edited','unlocked','checkin','achievement_updated'));
+
+    CREATE TABLE IF NOT EXISTS escalations (
+      id             SERIAL PRIMARY KEY,
+      type           VARCHAR(30) NOT NULL CHECK (type IN ('goal_not_submitted','approval_overdue','checkin_overdue')),
+      employee_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      manager_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      goal_sheet_id  INTEGER REFERENCES goal_sheets(id) ON DELETE SET NULL,
+      quarter        VARCHAR(5),
+      cycle_year     INTEGER NOT NULL,
+      level          INTEGER NOT NULL DEFAULT 1,
+      message        TEXT,
+      resolved       BOOLEAN DEFAULT FALSE,
+      created_at     TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 
   console.log('Migration complete.');

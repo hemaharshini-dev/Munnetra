@@ -14,6 +14,7 @@ app.use('/api/goal-sheets', require('./routes/goalSheets'));
 app.use('/api/manager', require('./routes/manager'));
 app.use('/api/shared-goals', require('./routes/sharedGoals'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin/analytics', require('./routes/analytics'));
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -21,4 +22,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  require('./jobs/escalationJob').start();
+});

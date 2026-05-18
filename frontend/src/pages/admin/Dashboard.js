@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import { useWindow } from '../../context/WindowContext';
+import AnalyticsTab from './AnalyticsTab';
 
-const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Completion', 'Reports', 'Cycle Windows'];
+const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Completion', 'Reports', 'Escalations', 'Analytics', 'Cycle Windows'];
 
 const STATUS_COLORS = {
   draft:     'bg-gray-100 text-gray-600',
@@ -47,6 +48,9 @@ export default function AdminDashboard() {
   const [reportFilters, setReportFilters] = useState({ department: '', cycle_year: new Date().getFullYear() });
   const [completionData, setCompletionData] = useState([]);
   const [completionDept, setCompletionDept] = useState('');
+
+  const [escalations, setEscalations] = useState([]);
+  const [escalationFilters, setEscalationFilters] = useState({ type: '', resolved: 'false', department: '' });
 
   const { refresh: refreshWindow } = useWindow();
   const [windows, setWindows] = useState([]);
@@ -141,6 +145,22 @@ export default function AdminDashboard() {
     a.download = `achievement_report_${reportFilters.cycle_year}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  useEffect(() => { if (tab === 'Escalations') loadEscalations(); }, [tab]);
+
+  async function loadEscalations() {
+    const params = new URLSearchParams();
+    if (escalationFilters.type) params.set('type', escalationFilters.type);
+    if (escalationFilters.resolved !== '') params.set('resolved', escalationFilters.resolved);
+    if (escalationFilters.department) params.set('department', escalationFilters.department);
+    const { data } = await api.get(`/admin/escalations?${params}`);
+    setEscalations(data);
+  }
+
+  async function resolveEscalation(id) {
+    await api.put(`/admin/escalations/${id}/resolve`);
+    loadEscalations();
   }
 
   async function loadAudit() {
@@ -604,6 +624,100 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
+
+        {/* ── Escalations Tab ── */}
+        {tab === 'Escalations' && (
+          <>
+            <div className="flex gap-3 mb-4 flex-wrap">
+              <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={escalationFilters.type}
+                onChange={e => setEscalationFilters(f => ({ ...f, type: e.target.value }))}>
+                <option value="">All Types</option>
+                <option value="goal_not_submitted">Goal Not Submitted</option>
+                <option value="approval_overdue">Approval Overdue</option>
+                <option value="checkin_overdue">Check-in Overdue</option>
+              </select>
+              <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={escalationFilters.resolved}
+                onChange={e => setEscalationFilters(f => ({ ...f, resolved: e.target.value }))}>
+                <option value="false">Unresolved</option>
+                <option value="true">Resolved</option>
+                <option value="">All</option>
+              </select>
+              <input placeholder="Filter by department" className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={escalationFilters.department}
+                onChange={e => setEscalationFilters(f => ({ ...f, department: e.target.value }))} />
+              <button onClick={loadEscalations} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">Filter</button>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Employee</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Manager</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Level</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Message</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {escalations.length === 0 && (
+                    <tr><td colSpan={8} className="text-center py-8 text-gray-400">No escalations found.</td></tr>
+                  )}
+                  {escalations.map(e => {
+                    const typeBadge = {
+                      goal_not_submitted: 'bg-red-100 text-red-700',
+                      approval_overdue:   'bg-orange-100 text-orange-700',
+                      checkin_overdue:    'bg-yellow-100 text-yellow-700',
+                    }[e.type] || 'bg-gray-100 text-gray-600';
+                    const typeLabel = {
+                      goal_not_submitted: 'Goal Not Submitted',
+                      approval_overdue:   'Approval Overdue',
+                      checkin_overdue:    'Check-in Overdue',
+                    }[e.type] || e.type;
+                    const levelLabel = { 1: 'L1 Employee', 2: 'L2 Manager', 3: 'L3 Admin' }[e.level] || `L${e.level}`;
+                    return (
+                      <tr key={e.id} className={`hover:bg-gray-50 ${e.resolved ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-800">{e.employee_name}</div>
+                          <div className="text-xs text-gray-400">{e.department}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-sm">{e.manager_name || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${typeBadge}`}>{typeLabel}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">{levelLabel}</span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{e.message}</td>
+                        <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">
+                          {e.resolved
+                            ? <span className="text-xs text-green-600 font-medium">✓ Resolved</span>
+                            : <span className="text-xs text-amber-600 font-medium">Pending</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {!e.resolved && (
+                            <button onClick={() => resolveEscalation(e.id)}
+                              className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 whitespace-nowrap">
+                              Mark Resolved
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── Analytics Tab ── */}
+        {tab === 'Analytics' && <AnalyticsTab />}
 
         {/* ── Cycle Windows Tab ── */}
         {tab === 'Cycle Windows' && (

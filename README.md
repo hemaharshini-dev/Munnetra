@@ -2,7 +2,7 @@
 
 A full-stack web application for managing employee goal creation, approval, quarterly check-ins, and performance reporting across an organisation.
 
-Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2 (Phase 2), 2.3 (Check-in Schedule), Section 3 (User Roles), and Section 4 (Reporting & Governance).
+Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2 (Phase 2), 2.3 (Check-in Schedule), Section 3 (User Roles), Section 4 (Reporting & Governance), 5.3 (Escalation Module), and 5.4 (Analytics Module).
 
 ---
 
@@ -18,10 +18,12 @@ Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2
 8. [API Reference](#8-api-reference)
 9. [Check-in Schedule & Window Enforcement](#9-check-in-schedule--window-enforcement)
 10. [Reporting & Governance](#10-reporting--governance)
-11. [Validation Rules](#11-validation-rules)
-12. [Component & Context Reference](#12-component--context-reference)
-13. [Troubleshooting](#13-troubleshooting)
-14. [Build Docs](#14-build-docs)
+11. [Escalation Module](#11-escalation-module)
+12. [Analytics Module](#12-analytics-module)
+13. [Validation Rules](#13-validation-rules)
+14. [Component & Context Reference](#14-component--context-reference)
+15. [Troubleshooting](#15-troubleshooting)
+16. [Build Docs](#16-build-docs)
 
 ---
 
@@ -29,10 +31,11 @@ Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Tailwind CSS 3, React Router v7, Axios |
+| Frontend | React 19, Tailwind CSS 3, React Router v7, Axios, Recharts |
 | Backend | Node.js, Express 4 |
 | Database | PostgreSQL 14+ |
 | Auth | JWT (jsonwebtoken), bcryptjs |
+| Scheduling | node-cron (escalation job) |
 | Dev tooling | nodemon |
 
 ---
@@ -44,21 +47,24 @@ Munnetra/
 ├── backend/
 │   ├── src/
 │   │   ├── db/
-│   │   │   ├── migrate.js        # Creates all 9 tables
+│   │   │   ├── migrate.js        # Creates all 10 tables
 │   │   │   ├── seed.js           # Demo users, thrust areas, check-in windows
 │   │   │   └── pool.js           # PostgreSQL connection pool
 │   │   ├── middleware/
 │   │   │   └── auth.js           # authenticate, requireRole, requireWindow
+│   │   ├── jobs/
+│   │   │   └── escalationJob.js  # Daily cron — 3 escalation rules
 │   │   ├── routes/
 │   │   │   ├── auth.js           # POST /login, GET /me
 │   │   │   ├── goalSheets.js     # Employee goal sheet CRUD + submit
 │   │   │   ├── achievements.js   # Employee achievement logging + score compute
 │   │   │   ├── manager.js        # Manager approval + check-in module
 │   │   │   ├── sharedGoals.js    # Push shared KPIs to employees
-│   │   │   ├── admin.js          # Admin reporting, unlock, audit log
+│   │   │   ├── admin.js          # Admin reporting, unlock, audit log, escalations
+│   │   │   ├── analytics.js      # 4 analytics endpoints
 │   │   │   ├── checkinWindows.js # Cycle window management
 │   │   │   └── thrustAreas.js    # Thrust area list
-│   │   └── index.js              # Express app entry point
+│   │   └── index.js              # Express app entry point + starts escalation job
 │   ├── .env                      # DATABASE_URL, JWT_SECRET, PORT
 │   └── package.json
 │
@@ -78,34 +84,36 @@ Munnetra/
 │       ├── pages/
 │       │   ├── Login.js
 │       │   ├── employee/
-│       │   │   ├── GoalSheet.js  # Create/edit/submit goal sheet
-│       │   │   └── CheckinPage.js # Log actuals, view scores per quarter
+│       │   │   ├── GoalSheet.js      # Create/edit/submit goal sheet
+│       │   │   └── CheckinPage.js    # Log actuals, view scores per quarter
 │       │   ├── manager/
-│       │   │   ├── Dashboard.js  # Team sheet list + check-in completion
-│       │   │   ├── ReviewSheet.js # Inline edit + approve/return
+│       │   │   ├── Dashboard.js      # Team sheet list + check-in completion
+│       │   │   ├── ReviewSheet.js    # Inline edit + approve/return
 │       │   │   └── ManagerCheckin.js # Planned vs actual + comment
 │       │   └── admin/
-│       │       └── Dashboard.js  # 6-tab admin panel
-│       └── App.js                # Routes + AuthProvider + WindowProvider
+│       │       ├── Dashboard.js      # 8-tab admin panel
+│       │       └── AnalyticsTab.js   # 4 Recharts analytics panels
+│       └── App.js                    # Routes + AuthProvider + WindowProvider
 │
 ├── Build docs/
-│   ├── Phase1_Plan.md            # Phase 1 build plan
-│   ├── Phase2_Plan.md            # Phase 2.2 build plan
-│   ├── Phase2_3_and_Roles_Plan.md # 2.3 + Section 3 build plan
-│   ├── RUNNING_THE_APP.md        # Detailed setup guide
-│   ├── User_Journey_Verification.md # Step-by-step BRD verification guide
-│   ├── Problem_Statement.txt     # Original hackathon problem statement
-│   └── Evaluation_Criteria.txt   # Hackathon evaluation parameters
+│   ├── Phase1_Plan.md
+│   ├── Phase2_Plan.md
+│   ├── Phase2_3_and_Roles_Plan.md
+│   ├── Bonus_Features_Plan.md
+│   ├── RUNNING_THE_APP.md
+│   ├── User_Journey_Verification.md
+│   ├── Problem_Statement.txt
+│   └── Evaluation_Criteria.txt
 │
 ├── .gitignore
-└── README.md                     # This file
+└── README.md
 ```
 
 ---
 
 ## 3. Database Schema
 
-### Tables
+### Tables (10 total)
 
 **users**
 ```
@@ -169,6 +177,14 @@ cycle_year, action (goal_setting|checkin)
 UNIQUE(period, cycle_year)
 ```
 
+**escalations**
+```
+id, type (goal_not_submitted|approval_overdue|checkin_overdue),
+employee_id (FK → users), manager_id (FK → users),
+goal_sheet_id (FK → goal_sheets), quarter, cycle_year,
+level (1|2|3), message, resolved (bool), created_at
+```
+
 ---
 
 ## 4. Prerequisites & Setup
@@ -201,7 +217,7 @@ cd ../frontend
 npm install
 ```
 
-### 4. Run migrations (creates all 9 tables)
+### 4. Run migrations (creates all 10 tables)
 ```bash
 cd backend
 npm run migrate
@@ -228,6 +244,7 @@ Two terminals required simultaneously:
 cd backend
 npm run dev
 # Server runs on http://localhost:5000
+# Escalation job scheduled — runs daily at 9:00 AM
 ```
 
 **Terminal 2 — Frontend**
@@ -255,11 +272,7 @@ npm start
 
 **Goal Sheet (`/employee`)**
 - Create a goal sheet for the current cycle year (one per cycle)
-- Add up to 8 goals per sheet with:
-  - Thrust Area, Title, Description
-  - Unit of Measurement: Numeric Min, Numeric Max, Timeline, Zero-based
-  - Target Value or Target Date
-  - Weightage (minimum 10% per goal)
+- Add up to 8 goals per sheet with Thrust Area, Title, Description, UoM, Target, Weightage
 - Live weightage counter — turns green at 100%, red otherwise
 - Edit and delete goals while sheet is in `draft` or `rework` status
 - Submit for manager approval (blocked if total weightage ≠ 100%)
@@ -270,7 +283,7 @@ npm start
 **Check-in (`/employee/checkin`)**
 - View all approved goals for the current cycle
 - Log actual achievement per goal per quarter (Q1–Q4)
-- Quarter tabs labelled with month ranges: `Q1 (Jul–Sep)`, `Q2 (Oct–Dec)`, `Q3 (Jan–Feb)`, `Q4 (Mar–Apr)`
+- Quarter tabs: `Q1 (Jul–Sep)`, `Q2 (Oct–Dec)`, `Q3 (Jan–Feb)`, `Q4 (Mar–Apr)`
 - Active quarter banner with calendar icon and date range
 - Input types adapt to UoM: number field for numeric/zero, date picker for timeline
 - Status dropdown per goal: Not Started / On Track / Completed
@@ -289,11 +302,9 @@ npm start
 - Two action buttons per row: `Review →` and `Check-in →`
 
 **Goal Sheet Review (`/manager/review/:id`)**
-- View submitted sheet with all goals
 - Inline edit target value/date and weightage per goal before approval
 - Approve sheet — locks all goals, logs to audit trail
-- Return for rework — requires a comment, sheet goes back to employee
-- Live weightage counter shown during review
+- Return for rework — requires a comment
 - All approval actions blocked outside the Goal Setting window
 
 **Check-in Review (`/manager/checkin/:sheetId`)**
@@ -301,7 +312,6 @@ npm start
 - Per goal: Planned Target vs Actual Achievement side by side
 - Progress score bar per goal
 - Submit structured check-in comment (required, cannot be empty)
-- Update existing comment within the same window
 - Past quarters shown as read-only with saved comment
 - Submit blocked outside a check-in window
 
@@ -309,45 +319,23 @@ npm start
 
 ### Admin (`/admin`)
 
-Six-tab dashboard:
+Eight-tab dashboard:
 
-**Sheets**
-- View all goal sheets across the organisation
-- Filter by status and department
-- Click any row to open a goal detail modal showing all goals with their IDs
-- Unlock locked goals directly from the modal with a reason (confirmation popup required)
-- Manual unlock by Goal ID as fallback
-- Unlock action logged to audit trail
+**Sheets** — view all sheets, filter by status/department, unlock locked goals with confirmation popup
 
-**Shared Goals**
-- Push a departmental KPI to multiple employees at once
-- Select thrust area, title, UoM, target, weightage
-- Select recipient employees via checkboxes
-- Recipients get the goal on their sheet — title and target are read-only for them
+**Shared Goals** — push departmental KPIs to multiple employees at once
 
-**Audit Log**
-- Full history of all actions: approved, returned, edited, unlocked, checkin, achievement_updated
-- Color-coded badges per action type
-- Shows actor name, sheet ID, comment, and timestamp
-- Notification bell in navbar shows unread count with live feed dropdown
+**Audit Log** — full history of all actions with color-coded badges (approved, returned, edited, unlocked, checkin, achievement_updated)
 
-**Completion**
-- Real-time grid: Employee | Manager | Dept | Q1 Emp | Q1 Mgr | Q2 Emp | Q2 Mgr | Q3 | Q4
-- ✓ = completed, — = not yet done
-- Filter by department
+**Completion** — real-time grid showing employee + manager check-in completion per quarter
 
-**Reports**
-- Achievement report: Employee | Goal | Thrust Area | UoM | Target | Q1–Q4 Actual + Score%
-- Filter by department and cycle year
-- Export to CSV button — downloads `achievement_report_YYYY.csv`
-- Scores color-coded green/orange/red inline
+**Reports** — achievement report table with CSV export (`achievement_report_YYYY.csv`)
 
-**Cycle Windows**
-- View all 5 check-in windows for the current cycle year
-- Edit open/close dates inline with date pickers
-- Active window highlighted in blue
-- "Set Active Now" button — opens a window immediately (demo shortcut)
-- Changes reflected instantly in the WindowBanner across all pages
+**Escalations** — view all escalation records, filter by type/status/department, mark resolved
+
+**Analytics** — 4 interactive charts (QoQ trends, completion rates, goal distribution, manager effectiveness)
+
+**Cycle Windows** — edit open/close dates, Set Active Now shortcut for demo
 
 ---
 
@@ -408,6 +396,16 @@ Six-tab dashboard:
 | GET | `/api/admin/employees` | Admin/Manager | All employees list |
 | GET | `/api/admin/achievement-report` | Admin | Planned vs actual all quarters |
 | GET | `/api/admin/completion-dashboard` | Admin | Check-in completion per employee |
+| GET | `/api/admin/escalations` | Admin | All escalations with filters |
+| PUT | `/api/admin/escalations/:id/resolve` | Admin | Mark escalation as resolved |
+
+### Analytics
+| Method | Endpoint | Role | Description |
+|---|---|---|---|
+| GET | `/api/admin/analytics/qoq-trends` | Admin | Avg score per quarter per department |
+| GET | `/api/admin/analytics/completion-rates` | Admin | Employee + manager completion % per quarter |
+| GET | `/api/admin/analytics/goal-distribution` | Admin | Goals by thrust area, UoM type, status |
+| GET | `/api/admin/analytics/manager-effectiveness` | Admin | Check-in completion rate per manager |
 
 ### Check-in Windows
 | Method | Endpoint | Role | Description |
@@ -421,7 +419,7 @@ Six-tab dashboard:
 
 ## 9. Check-in Schedule & Window Enforcement
 
-The portal enforces the following calendar windows. Actions outside their window are blocked at the backend with a `403` response.
+Actions outside their window are blocked at the backend with a `403` response.
 
 | Period | Opens | Closes | Actions Permitted |
 |---|---|---|---|
@@ -431,33 +429,28 @@ The portal enforces the following calendar windows. Actions outside their window
 | Q3 Check-in | 1 Jan | 28 Feb | Log achievements, submit manager check-in |
 | Q4 / Annual | 1 Mar | 30 Apr | Final achievement capture + manager check-in |
 
-**Demo note:** The seed script sets Q1 `opens_at = yesterday` and `closes_at = far future` so the check-in flow is immediately demonstrable. Admin can change window dates via the Cycle Windows tab.
+**Demo note:** Seed sets Q1 `opens_at = yesterday` and `closes_at = far future` so check-in is immediately demonstrable. Admin can change dates via the Cycle Windows tab.
 
-**WindowBanner** — shown below the navbar on every page for all roles:
+**WindowBanner** — shown below the navbar on every page:
 - Blue — active check-in window
 - Green — active goal setting window
 - Orange — window closing within 7 days
-- Gray — no active window (between cycles)
+- Gray — no active window
 
 ---
 
 ## 10. Reporting & Governance
 
 ### Achievement Report
-- Endpoint: `GET /api/admin/achievement-report?department=X&cycle_year=2025`
-- Shows every employee's planned target vs actual achievement for all 4 quarters
-- Exportable as CSV from the Admin Dashboard → Reports tab
-- Filename: `achievement_report_YYYY.csv`
+- `GET /api/admin/achievement-report?department=X&cycle_year=2025`
+- Planned target vs actual for all employees, all 4 quarters
+- Exportable as CSV — `achievement_report_YYYY.csv`
 
 ### Completion Dashboard
-- Endpoint: `GET /api/admin/completion-dashboard?department=X`
-- Real-time grid showing which employees and managers have completed each quarterly check-in
-- Employee done = at least one achievement logged that quarter
-- Manager done = check-in comment submitted that quarter
+- `GET /api/admin/completion-dashboard?department=X`
+- Real-time grid: employee done = achievement logged, manager done = check-in submitted
 
 ### Audit Trail
-Every significant action is logged to `goal_approvals`:
-
 | Action | Triggered By |
 |---|---|
 | `approved` | Manager approves a goal sheet |
@@ -469,9 +462,53 @@ Every significant action is logged to `goal_approvals`:
 
 ---
 
-## 11. Validation Rules
+## 11. Escalation Module
 
-All rules are enforced at the backend — frontend provides UX feedback but cannot bypass them.
+A daily cron job (runs at 9:00 AM) evaluates 3 rules and inserts records into the `escalations` table. No emails — all escalations are visible in the Admin Dashboard → Escalations tab.
+
+### Rules
+
+| Rule | Trigger | Levels |
+|---|---|---|
+| Goal Not Submitted | Employee has no submitted sheet N days after goal-setting window opens | L1 → employee notified, L2 → manager notified, L3 → admin notified |
+| Approval Overdue | Sheet submitted but not approved within N days | L1 → manager notified, L2 → admin notified |
+| Check-in Overdue | No achievements logged within N days before check-in window closes | L1 → employee notified, L2 → manager notified |
+
+### Configurable thresholds (in `escalationJob.js`)
+```js
+goal_not_submitted_days: 7
+approval_overdue_days:   3
+checkin_overdue_days:    7
+level2_after_days:       3
+level3_after_days:       3
+```
+
+### Admin Escalations Tab
+- Filter by type, resolved status, department
+- Color-coded badges: red (goal not submitted), orange (approval overdue), yellow (check-in overdue)
+- Level labels: L1 Employee / L2 Manager / L3 Admin
+- Mark Resolved button per row
+
+---
+
+## 12. Analytics Module
+
+Four interactive charts in the Admin Dashboard → Analytics tab, powered by Recharts.
+
+| Chart | Type | What It Shows |
+|---|---|---|
+| QoQ Achievement Trend | Line chart | Avg progress score per quarter per department |
+| Check-in Completion Rates | Grouped bar chart | Employee vs manager completion % per quarter |
+| Goal Distribution | Bar + 2 pie charts | Goals by thrust area, UoM type, achievement status |
+| Manager Effectiveness | Horizontal bar chart | Check-in completion rate per manager (green/orange/red) |
+
+All charts support cycle year filtering and a Refresh button.
+
+---
+
+## 13. Validation Rules
+
+All rules enforced at the backend — frontend provides UX feedback but cannot bypass them.
 
 | Rule | Endpoint |
 |---|---|
@@ -490,18 +527,18 @@ All rules are enforced at the backend — frontend provides UX feedback but cann
 
 ---
 
-## 12. Component & Context Reference
+## 14. Component & Context Reference
 
 ### Contexts
 
 **AuthContext** (`src/context/AuthContext.js`)
-- `user` — current logged-in user object `{ id, name, email, role, department }`
-- `login(email, password)` — authenticates and stores JWT in localStorage
+- `user` — `{ id, name, email, role, department }`
+- `login(email, password)` — authenticates, stores JWT in localStorage
 - `logout()` — clears localStorage and user state
 
 **WindowContext** (`src/context/WindowContext.js`)
-- `activeWindow` — current open window object or `null` if between cycles
-- `refresh()` — re-fetches active window (called after admin updates window dates)
+- `activeWindow` — current open window object or `null`
+- `refresh()` — re-fetches active window (called after admin updates dates)
 
 ### Components
 
@@ -514,16 +551,16 @@ All rules are enforced at the backend — frontend provides UX feedback but cann
 
 **NotificationBell** — admin-only; fetches audit log, tracks unread via `localStorage`, dropdown with color-coded action feed
 
-**GoalForm** — modal for add/edit goal with all fields; UoM-aware (shows date picker for timeline, number for others)
+**GoalForm** — modal for add/edit goal; UoM-aware (date picker for timeline, number for others)
 
-**ProgressBar** — `score` prop (0.0–1.0); renders colored bar + percentage
-- < 40% → red
-- 40–70% → orange
-- > 70% → green
+**ProgressBar** — `score` prop (0.0–1.0); colored bar + percentage
+- < 40% → red · 40–70% → orange · > 70% → green
+
+**AnalyticsTab** — 4 Recharts panels with cycle year filter and refresh
 
 ---
 
-## 13. Troubleshooting
+## 15. Troubleshooting
 
 | Problem | Fix |
 |---|---|
@@ -537,20 +574,23 @@ All rules are enforced at the backend — frontend provides UX feedback but cann
 | Port 5000 already in use | Change `PORT` in `.env` and update `frontend/src/api/client.js` baseURL |
 | `npm install` fails | Delete `node_modules/` and `package-lock.json`, then retry |
 | Shared goal actual is read-only | Expected — actual value syncs from the source goal owner only |
-| Unlock button shows confirmation popup | By design — all unlocks require confirmation and are logged to audit trail |
+| Unlock button shows confirmation popup | By design — all unlocks require confirmation and are logged |
+| Analytics charts show no data | Log some achievements first, then click Refresh on the Analytics tab |
+| No escalations showing | Escalation job runs at 9 AM daily. Trigger manually via the API or wait for the next run |
 
 ---
 
-## 14. Build Docs
+## 16. Build Docs
 
 All planning, setup, and verification documents are in the `Build docs/` folder:
 
 | File | Purpose |
 |---|---|
-| `RUNNING_THE_APP.md` | Detailed step-by-step setup guide with screenshots and troubleshooting |
-| `User_Journey_Verification.md` | Step-by-step guide to verify every BRD requirement (sections 1–4) is working |
-| `Phase1_Plan.md` | Detailed build plan for BRD 2.1 — Goal Creation & Approval |
-| `Phase2_Plan.md` | Detailed build plan for BRD 2.2 — Achievement Tracking & Check-ins |
-| `Phase2_3_and_Roles_Plan.md` | Detailed build plan for BRD 2.3 (Check-in Schedule) + Section 3 (User Roles) |
+| `RUNNING_THE_APP.md` | Detailed step-by-step setup guide |
+| `User_Journey_Verification.md` | Step-by-step guide to verify every BRD requirement (sections 1–4) |
+| `Phase1_Plan.md` | Build plan for BRD 2.1 — Goal Creation & Approval |
+| `Phase2_Plan.md` | Build plan for BRD 2.2 — Achievement Tracking & Check-ins |
+| `Phase2_3_and_Roles_Plan.md` | Build plan for BRD 2.3 (Check-in Schedule) + Section 3 (User Roles) |
+| `Bonus_Features_Plan.md` | Build plan for BRD 5.3 (Escalation) + 5.4 (Analytics) |
 | `Problem_Statement.txt` | Original ATOMQUEST Hackathon 1.0 problem statement |
 | `Evaluation_Criteria.txt` | Hackathon evaluation parameters and scoring criteria |
