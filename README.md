@@ -13,18 +13,19 @@ Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2
 3. [Database Schema](#3-database-schema)
 4. [Prerequisites & Setup](#4-prerequisites--setup)
 5. [Running the Application](#5-running-the-application)
-6. [Demo Credentials](#6-demo-credentials)
-7. [Features by Role](#7-features-by-role)
-8. [API Reference](#8-api-reference)
-9. [Check-in Schedule & Window Enforcement](#9-check-in-schedule--window-enforcement)
-10. [Reporting & Governance](#10-reporting--governance)
-11. [Escalation Module](#11-escalation-module)
-12. [Analytics Module](#12-analytics-module)
-13. [Validation Rules](#13-validation-rules)
-14. [Component & Context Reference](#14-component--context-reference)
-15. [Troubleshooting](#15-troubleshooting)
-16. [Cost Optimisation](#16-cost-optimisation)
-17. [Build Docs](#17-build-docs)
+6. [Live Demo](#6-live-demo)
+7. [Demo Credentials](#7-demo-credentials)
+8. [Features by Role](#8-features-by-role)
+9. [API Reference](#9-api-reference)
+10. [Check-in Schedule & Window Enforcement](#10-check-in-schedule--window-enforcement)
+11. [Reporting & Governance](#11-reporting--governance)
+12. [Escalation Module](#12-escalation-module)
+13. [Analytics Module](#13-analytics-module)
+14. [Validation Rules](#14-validation-rules)
+15. [Component & Context Reference](#15-component--context-reference)
+16. [Troubleshooting](#16-troubleshooting)
+17. [Cost Optimisation](#17-cost-optimisation)
+18. [Build Docs](#18-build-docs)
 
 ---
 
@@ -257,7 +258,43 @@ npm start
 
 ---
 
-## 6. Demo Credentials
+## 6. Live Demo
+
+The application is deployed and accessible at:
+
+| Layer | URL |
+|---|---|
+| Frontend | https://munnetra.vercel.app |
+| Backend API | https://munnetra.onrender.com |
+
+### Hosting Stack
+
+| Layer | Service | Plan |
+|---|---|---|
+| Frontend | Vercel | Free |
+| Backend | Render Web Service | Free |
+| Database | Render PostgreSQL | Free |
+
+### Deployment Notes
+
+- **Auto migrate + seed on startup** — `index.js` runs `migrate()` and `seed()` before the server starts. Tables are created with `CREATE TABLE IF NOT EXISTS` and seed uses `ON CONFLICT DO UPDATE`, so every deploy is safe and idempotent.
+- **SSL** — `pool.js` enables `ssl: { rejectUnauthorized: false }` automatically when connecting to Render's PostgreSQL (detected via the `render.com` hostname in `DATABASE_URL`). Local development connects without SSL.
+- **CORS** — the backend allows requests only from the `FRONTEND_URL` environment variable set on Render. Must match the exact Vercel URL with no trailing slash.
+- **Cold starts** — Render free tier spins down after 15 minutes of inactivity. The first request after idle takes ~30 seconds to wake up. Open `https://munnetra.onrender.com/api/auth/me` once before a demo to pre-warm the instance.
+- **Environment variables required on Render:**
+  ```
+  DATABASE_URL   = <Render PostgreSQL external URL>
+  JWT_SECRET     = <any long random string>
+  FRONTEND_URL   = https://munnetra.vercel.app
+  ```
+- **Environment variables required on Vercel:**
+  ```
+  REACT_APP_API_URL = https://munnetra.onrender.com
+  ```
+
+---
+
+## 7. Demo Credentials
 
 | Role | Email | Password | Landing Page |
 |---|---|---|---|
@@ -267,7 +304,7 @@ npm start
 
 ---
 
-## 7. Features by Role
+## 8. Features by Role
 
 ### Employee (`/employee`, `/employee/checkin`)
 
@@ -340,7 +377,7 @@ Eight-tab dashboard:
 
 ---
 
-## 8. API Reference
+## 9. API Reference
 
 > **Post-build bug fixes applied:**
 > - **Shared goal sync** (`sharedGoals.js`, `achievements.js`): Previously every recipient goal was its own source (`source_goal_id = employee_goal_id`, `is_shared=TRUE`), so actual-value sync never fired. Fixed by creating one canonical source goal (`is_shared=FALSE`) owned by the pusher; recipient copies point to it via `shared_from_goal_id`. Sync in `achievements.js` now correctly propagates actuals to all recipients.
@@ -424,7 +461,7 @@ Eight-tab dashboard:
 
 ---
 
-## 9. Check-in Schedule & Window Enforcement
+## 10. Check-in Schedule & Window Enforcement
 
 Actions outside their window are blocked at the backend with a `403` response.
 
@@ -446,7 +483,7 @@ Actions outside their window are blocked at the backend with a `403` response.
 
 ---
 
-## 10. Reporting & Governance
+## 11. Reporting & Governance
 
 ### Achievement Report
 - `GET /api/admin/achievement-report?department=X&cycle_year=2025`
@@ -469,7 +506,7 @@ Actions outside their window are blocked at the backend with a `403` response.
 
 ---
 
-## 11. Escalation Module
+## 12. Escalation Module
 
 A daily cron job (runs at 9:00 AM) evaluates 3 rules and inserts records into the `escalations` table. No emails — all escalations are visible in the Admin Dashboard → Escalations tab.
 
@@ -498,7 +535,7 @@ level3_after_days:       3
 
 ---
 
-## 12. Analytics Module
+## 13. Analytics Module
 
 Four interactive charts in the Admin Dashboard → Analytics tab, powered by Recharts.
 
@@ -513,7 +550,7 @@ All charts support cycle year filtering and a Refresh button.
 
 ---
 
-## 13. Validation Rules
+## 14. Validation Rules
 
 All rules enforced at the backend — frontend provides UX feedback but cannot bypass them.
 
@@ -534,7 +571,7 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 
 ---
 
-## 14. Component & Context Reference
+## 15. Component & Context Reference
 
 ### Contexts
 
@@ -567,7 +604,7 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
 | Problem | Fix |
 |---|---|
@@ -586,10 +623,13 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 | Unlock button shows confirmation popup | By design — all unlocks require confirmation and are logged |
 | Analytics charts show no data | Log some achievements first, then click Refresh on the Analytics tab |
 | No escalations showing | Escalation job runs at 9 AM daily. Trigger manually via the API or wait for the next run |
+| Render deploy fails with `SSL/TLS required` | `pool.js` must include `ssl: { rejectUnauthorized: false }` when `DATABASE_URL` contains `render.com` — already handled in the current codebase |
+| Login fails on hosted app | Check browser Network tab — if CORS error, update `FRONTEND_URL` on Render to match your exact Vercel URL (no trailing slash). If loading forever, the Render instance is cold-starting — wait 30s and retry |
+| Vercel build fails with ESLint errors | Vercel sets `CI=true` which treats warnings as errors. All known ESLint issues have been suppressed with `// eslint-disable-line` comments in the codebase |
 
 ---
 
-## 16. Cost Optimisation
+## 17. Cost Optimisation
 
 This section documents every architectural and implementation decision made to keep the solution efficient, low-cost, and scalable.
 
@@ -649,7 +689,7 @@ For a hackathon demo, the entire stack runs locally at zero cost.
 
 ---
 
-## 17. Build Docs
+## 18. Build Docs
 
 All planning, setup, and verification documents are in the `Build docs/` folder:
 
