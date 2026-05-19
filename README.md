@@ -313,6 +313,9 @@ The application is deployed and accessible at:
 - Create a goal sheet for the current cycle year (one per cycle)
 - Add up to 8 goals per sheet with Thrust Area, Title, Description, UoM, Target, Weightage
 - **Animated weightage donut chart** — SVG ring that fills as goals are added; green at 100%, yellow when under, red when over
+- **Gradient page hero** — shows live goal count, weightage allocated, and sheet status in a blue banner
+- **UoM-colored left border** on each goal card — blue (numeric min), orange (numeric max), purple (timeline), green (zero)
+- **Status-aware empty state** — dashed card with icon and CTA button when no goals added yet
 - Edit and delete goals while sheet is in `draft` or `rework` status
 - Submit for manager approval (blocked if total weightage ≠ 100%)
 - View shared goals — title and target are read-only, only weightage is editable
@@ -322,6 +325,7 @@ The application is deployed and accessible at:
 **Check-in (`/employee/checkin`)**
 - View all approved goals for the current cycle
 - Log actual achievement per goal per quarter (Q1–Q4)
+- **Gradient page hero** — indigo/blue banner with page context
 - Quarter tabs: `Q1 (Jul–Sep)`, `Q2 (Oct–Dec)`, `Q3 (Jan–Feb)`, `Q4 (Mar–Apr)`
 - Active quarter banner with calendar icon and date range
 - Input types adapt to UoM: number field for numeric/zero, date picker for timeline
@@ -329,6 +333,7 @@ The application is deployed and accessible at:
 - Live progress score bar (red < 40%, orange 40–70%, green > 70%)
 - **Overall score card** — weighted average score across all goals shown at the top of the selected quarter
 - **Q1–Q4 progress timeline** — color-coded bar at the bottom of each goal card showing logged vs unlogged quarters at a glance
+- **UoM-colored left border** on each goal card
 - Re-save within the same open window (upsert)
 - Shared goal actual value is read-only — synced from source owner
 - All inputs disabled outside a check-in window
@@ -343,12 +348,16 @@ The application is deployed and accessible at:
 - Two action buttons per row: `Review →` and `Check-in →`
 
 **Goal Sheet Review (`/manager/review/:id`)**
+- **Gradient page hero** — blue banner with employee name, email, cycle year, and status badge
+- **UoM-colored left border** on each goal card
 - Inline edit target value/date and weightage per goal before approval
 - Approve sheet — locks all goals, logs to audit trail
 - Return for rework — requires a comment
 - All approval actions blocked outside the Goal Setting window
 
 **Check-in Review (`/manager/checkin/:sheetId`)**
+- **Gradient page hero** — teal/blue banner with employee name and completed quarters counter (e.g. 2/4)
+- **UoM-colored left border** on each goal card
 - Quarter selector tabs with ✓ indicator for completed quarters
 - Per goal: Planned Target vs Actual Achievement side by side
 - Progress score bar per goal
@@ -609,6 +618,7 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 - Employee: My Goals | Check-in
 - Manager: Team Goals
 - Admin: notification bell
+- Brand icon with gradient, avatar initials circle (color-coded by role), styled logout button
 
 **WindowBanner** — color-coded bar showing active window name and dates
 

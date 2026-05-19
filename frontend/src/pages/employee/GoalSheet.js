@@ -12,6 +12,13 @@ const STATUS_COLORS = {
   rework:    'bg-red-100 text-red-700',
 };
 
+const UOM_BORDER = {
+  numeric_min: 'border-l-4 border-l-blue-400',
+  numeric_max: 'border-l-4 border-l-orange-400',
+  timeline:    'border-l-4 border-l-purple-400',
+  zero:        'border-l-4 border-l-green-400',
+};
+
 function WeightageDonut({ total }) {
   const pct = Math.min(Math.round(total), 100);
   const r = 28, circ = 2 * Math.PI * r;
@@ -95,16 +102,31 @@ export default function EmployeeGoalSheet() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">My Goal Sheet</h1>
-            <p className="text-gray-500 text-sm">Cycle Year: {new Date().getFullYear()}</p>
+        {/* Page hero */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 mb-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">Cycle {new Date().getFullYear()}</p>
+              <h1 className="text-2xl font-bold">My Goal Sheet</h1>
+              <p className="text-blue-200 text-sm mt-1">
+                {!sheet ? 'Create your goal sheet to get started' :
+                 sheet.status === 'draft' ? `${goals.length} goal${goals.length !== 1 ? 's' : ''} added · ${Math.round(totalWeightage)}% allocated` :
+                 sheet.status === 'submitted' ? 'Awaiting manager approval' :
+                 sheet.status === 'approved' ? 'Goals approved and locked' :
+                 'Returned for rework — update and resubmit'}
+              </p>
+            </div>
+            {sheet && (
+              <span className={`text-sm px-3 py-1.5 rounded-full font-semibold capitalize backdrop-blur-sm ${
+                sheet.status === 'approved' ? 'bg-green-400/30 text-green-100' :
+                sheet.status === 'submitted' ? 'bg-yellow-400/30 text-yellow-100' :
+                sheet.status === 'rework' ? 'bg-red-400/30 text-red-100' :
+                'bg-white/20 text-white'
+              }`}>
+                {sheet.status}
+              </span>
+            )}
           </div>
-          {sheet && (
-            <span className={`text-sm px-3 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[sheet.status]}`}>
-              {sheet.status}
-            </span>
-          )}
         </div>
 
         {activeWindow !== undefined && !windowOpen && (
@@ -178,12 +200,26 @@ export default function EmployeeGoalSheet() {
             {/* Goals list */}
             <div className="space-y-3 mb-4">
               {goals.length === 0 && (
-                <div className="bg-white rounded-xl p-6 text-center text-gray-400 text-sm">No goals added yet.</div>
+                <div className="bg-white rounded-xl p-10 text-center border-2 border-dashed border-gray-200">
+                  <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-700 font-medium mb-1">No goals added yet</p>
+                  <p className="text-gray-400 text-sm mb-4">Add up to 8 goals. Total weightage must equal 100% before submitting.</p>
+                  {isEditable && goals.length < 8 && (
+                    <button
+                      onClick={() => { setEditGoal(null); setShowForm(true); }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+                    >+ Add your first goal</button>
+                  )}
+                </div>
               )}
               {goals.map(goal => {
                 const locked = goal.is_locked === true || goal.is_locked === 'true';
                 return (
-                  <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-4">
+                  <div key={goal.id} className={`bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-4 ${UOM_BORDER[goal.uom_type] || 'border-l-4 border-l-gray-200'} ${locked ? 'opacity-75' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-gray-800 text-sm">{goal.title}</span>

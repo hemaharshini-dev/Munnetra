@@ -18,6 +18,13 @@ const STATUS_COLORS = {
   completed:   'bg-green-100 text-green-700',
 };
 
+const UOM_BORDER = {
+  numeric_min: 'border-l-4 border-l-blue-400',
+  numeric_max: 'border-l-4 border-l-orange-400',
+  timeline:    'border-l-4 border-l-purple-400',
+  zero:        'border-l-4 border-l-green-400',
+};
+
 function computeScore(uom_type, target_value, target_date, actual_value, actual_date) {
   if (uom_type === 'numeric_min') {
     if (!target_value || !actual_value) return null;
@@ -134,8 +141,12 @@ export default function CheckinPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-1">Quarterly Check-in</h1>
-        <p className="text-gray-500 text-sm mb-6">Log your actual achievement against each goal.</p>
+        {/* Page hero */}
+        <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-6 mb-6 text-white">
+          <p className="text-indigo-200 text-xs font-medium uppercase tracking-widest mb-1">Cycle {new Date().getFullYear()}</p>
+          <h1 className="text-2xl font-bold">Quarterly Check-in</h1>
+          <p className="text-indigo-200 text-sm mt-1">Log your actual achievement against each goal for the selected quarter.</p>
+        </div>
 
         {!windowOpen && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4 flex items-start gap-2">
@@ -188,7 +199,7 @@ export default function CheckinPage() {
             const inputDisabled = isSharedRecipient || !windowOpen;
 
             return (
-              <div key={goal.id} className="bg-white rounded-xl shadow-sm p-5">
+              <div key={goal.id} className={`bg-white rounded-xl shadow-sm p-5 ${UOM_BORDER[goal.uom_type] || 'border-l-4 border-l-gray-200'}`}>
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">

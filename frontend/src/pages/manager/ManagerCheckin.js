@@ -12,6 +12,13 @@ const STATUS_COLORS = {
   completed:   'bg-green-100 text-green-700',
 };
 
+const UOM_BORDER = {
+  numeric_min: 'border-l-4 border-l-blue-400',
+  numeric_max: 'border-l-4 border-l-orange-400',
+  timeline:    'border-l-4 border-l-purple-400',
+  zero:        'border-l-4 border-l-green-400',
+};
+
 export default function ManagerCheckin() {
   const { sheetId } = useParams();
   const navigate = useNavigate();
@@ -80,10 +87,17 @@ export default function ManagerCheckin() {
         </button>
 
         {data && (
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">{data.employee_name} — Check-in</h1>
-              <p className="text-gray-500 text-sm">{data.employee_email} · Cycle {data.cycle_year}</p>
+          <div className="bg-gradient-to-r from-teal-600 to-blue-600 rounded-2xl p-6 mb-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-teal-200 text-xs font-medium uppercase tracking-widest mb-1">Manager Check-in</p>
+                <h1 className="text-2xl font-bold">{data.employee_name}</h1>
+                <p className="text-teal-200 text-sm mt-1">{data.employee_email} · Cycle {data.cycle_year}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-teal-200 text-xs mb-1">Completed quarters</p>
+                <p className="text-2xl font-bold">{(data.checkins || []).length}<span className="text-teal-300 text-base font-normal">/4</span></p>
+              </div>
             </div>
           </div>
         )}
@@ -132,7 +146,7 @@ export default function ManagerCheckin() {
                 <div className="bg-white rounded-xl p-6 text-center text-gray-400 text-sm">No goals found.</div>
               )}
               {(data.goals || []).map(goal => (
-                <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4">
+                <div key={goal.id} className={`bg-white rounded-xl shadow-sm p-4 ${UOM_BORDER[goal.uom_type] || 'border-l-4 border-l-gray-200'}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="font-medium text-gray-800 text-sm">{goal.title}</span>
                     {goal.is_shared && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Shared</span>}

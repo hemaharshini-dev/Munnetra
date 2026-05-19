@@ -3,6 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 
+const UOM_BORDER = {
+  numeric_min: 'border-l-4 border-l-blue-400',
+  numeric_max: 'border-l-4 border-l-orange-400',
+  timeline:    'border-l-4 border-l-purple-400',
+  zero:        'border-l-4 border-l-green-400',
+};
+
 export default function ReviewSheet() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -99,14 +106,20 @@ export default function ReviewSheet() {
         <button onClick={() => navigate('/manager')} className="text-sm text-blue-600 hover:underline mb-4 block">
           ← Back to Dashboard
         </button>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Reviewing: {sheet.employee_name}</h1>
-            <p className="text-gray-500 text-sm">{sheet.employee_email} · Cycle {sheet.cycle_year}</p>
+        {/* Page hero */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 mb-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">Goal Sheet Review</p>
+              <h1 className="text-2xl font-bold">{sheet.employee_name}</h1>
+              <p className="text-blue-200 text-sm mt-1">{sheet.employee_email} · Cycle {sheet.cycle_year}</p>
+            </div>
+            <span className={`text-sm px-3 py-1.5 rounded-full font-semibold capitalize backdrop-blur-sm ${
+              sheet.status === 'approved' ? 'bg-green-400/30 text-green-100' :
+              sheet.status === 'submitted' ? 'bg-yellow-400/30 text-yellow-100' :
+              'bg-white/20 text-white'
+            }`}>{sheet.status}</span>
           </div>
-          <span className={`text-sm px-3 py-1 rounded-full font-medium capitalize ${statusColors[sheet.status] || 'bg-gray-100 text-gray-600'}`}>
-            {sheet.status}
-          </span>
         </div>
 
         {message && (
@@ -138,7 +151,7 @@ export default function ReviewSheet() {
           {goals.map(goal => {
             const isSubmitted = sheet.status === 'submitted';
             return (
-              <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4">
+              <div key={goal.id} className={`bg-white rounded-xl shadow-sm p-4 ${UOM_BORDER[goal.uom_type] || 'border-l-4 border-l-gray-200'}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
