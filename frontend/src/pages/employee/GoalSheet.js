@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import GoalForm from '../../components/GoalForm';
+import Toast from '../../components/Toast';
 import { useWindow } from '../../context/WindowContext';
 
 const STATUS_COLORS = {
@@ -11,25 +12,43 @@ const STATUS_COLORS = {
   rework:    'bg-red-100 text-red-700',
 };
 
+function WeightageDonut({ total }) {
+  const pct = Math.min(Math.round(total), 100);
+  const r = 28, circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  const color = pct === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
+  return (
+    <div className="relative w-20 h-20 shrink-0">
+      <svg className="w-20 h-20 -rotate-90" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="#e5e7eb" strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="6"
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.4s ease' }} />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-sm font-bold" style={{ color }}>{Math.round(total)}%</span>
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeGoalSheet() {
   const [sheet, setSheet] = useState(null);
   const [reworkComment, setReworkComment] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editGoal, setEditGoal] = useState(null);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null); // { message, type }
+
+  const showToast = (message, type = 'success') => setToast({ message, type });
 
   const load = useCallback(async () => {
     const { data } = await api.get('/goal-sheets/mine');
     setSheet(data);
-    // Fetch manager's return comment if sheet is in rework
     if (data?.status === 'rework' && data?.id) {
       try {
         const { data: rc } = await api.get(`/goal-sheets/${data.id}/rework-comment`);
         setReworkComment(rc.comment || '');
-      } catch {
-        // non-critical — silently ignore
-      }
+      } catch { /* non-critical */ }
     }
   }, []);
 
@@ -40,7 +59,7 @@ export default function EmployeeGoalSheet() {
       await api.post('/goal-sheets');
       load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create sheet');
+      showToast(err.response?.data?.error || 'Failed to create sheet', 'error');
     }
   }
 
@@ -48,30 +67,27 @@ export default function EmployeeGoalSheet() {
     if (!window.confirm('Delete this goal?')) return;
     try {
       await api.delete(`/goal-sheets/goals/${id}`);
+      showToast('Goal deleted.');
       load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete');
+      showToast(err.response?.data?.error || 'Failed to delete', 'error');
     }
   }
 
   async function submitSheet() {
-    setError(''); setMessage('');
     try {
       await api.post(`/goal-sheets/${sheet.id}/submit`);
-      setMessage('Goal sheet submitted for manager approval.');
+      showToast('Goal sheet submitted for manager approval.');
       load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Submission failed');
+      showToast(err.response?.data?.error || 'Submission failed', 'error');
     }
   }
 
   const { activeWindow } = useWindow();
-  // Window is open if goal_setting is active, OR if still loading (undefined = don't block yet)
   const windowOpen = activeWindow === undefined || activeWindow?.action === 'goal_setting';
-
   const goals = sheet?.goals || [];
   const totalWeightage = goals.reduce((s, g) => s + parseFloat(g.weightage || 0), 0);
-  // Editable if window is open — allow editing unlocked goals on approved sheets too
   const isEditable = sheet && windowOpen;
   const canSubmit = sheet && ['draft', 'rework'].includes(sheet.status) && windowOpen && goals.length > 0 && Math.round(totalWeightage) === 100;
 
@@ -91,24 +107,6 @@ export default function EmployeeGoalSheet() {
           )}
         </div>
 
-        {message && (
-          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {message}
-          </div>
-        )}
-        {error && (
-          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
-          </div>
-        )}
-
-        {/* Window status debug banner */}
         {activeWindow !== undefined && !windowOpen && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 mb-4">
             <p className="font-medium">Goal editing is currently disabled.</p>
@@ -138,7 +136,6 @@ export default function EmployeeGoalSheet() {
           </div>
         ) : (
           <>
-            {/* Rework banner — now shows manager's comment */}
             {sheet.status === 'rework' && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 text-sm text-orange-800">
                 <div className="flex items-start gap-2">
@@ -157,27 +154,25 @@ export default function EmployeeGoalSheet() {
               </div>
             )}
 
-            {/* Weightage counter */}
-            <div className={`flex items-center justify-between p-4 rounded-lg mb-4 ${
-              Math.round(totalWeightage) === 100 ? 'bg-green-50 border border-green-200' :
-              totalWeightage > 100 ? 'bg-red-50 border border-red-200' :
-              'bg-yellow-50 border border-yellow-200'
-            }`}>
+            {/* Weightage donut */}
+            <div className="flex items-center gap-4 p-4 bg-white rounded-xl shadow-sm mb-4">
+              <WeightageDonut total={totalWeightage} />
               <div>
-                <span className="text-sm font-medium text-gray-700">Total Weightage</span>
-                {totalWeightage > 100 && (
-                  <p className="text-xs text-red-500 mt-0.5">Over by {(totalWeightage - 100).toFixed(0)}% — edit a goal to reduce its weightage.</p>
-                )}
-                {totalWeightage < 100 && goals.length > 0 && (
-                  <p className="text-xs text-yellow-600 mt-0.5">{(100 - totalWeightage).toFixed(0)}% remaining to allocate.</p>
-                )}
+                <p className="text-sm font-medium text-gray-700">Total Weightage</p>
+                <p className={`text-xs mt-0.5 ${Math.round(totalWeightage) === 100 ? 'text-green-600' : totalWeightage > 100 ? 'text-red-500' : 'text-yellow-600'}`}>
+                  {Math.round(totalWeightage) === 100
+                    ? '✓ Ready to submit'
+                    : totalWeightage > 100
+                    ? `Over by ${(totalWeightage - 100).toFixed(0)}% — reduce a goal's weightage`
+                    : goals.length > 0 ? `${(100 - totalWeightage).toFixed(0)}% remaining to allocate` : 'Add goals to get started'}
+                </p>
               </div>
-              <span className={`text-lg font-bold ${
-                Math.round(totalWeightage) === 100 ? 'text-green-600' :
-                totalWeightage > 100 ? 'text-red-500' : 'text-yellow-600'
-              }`}>
-                {totalWeightage.toFixed(0)}% / 100%
-              </span>
+              <div className="ml-auto text-right">
+                <span className={`text-2xl font-bold ${Math.round(totalWeightage) === 100 ? 'text-green-600' : totalWeightage > 100 ? 'text-red-500' : 'text-yellow-600'}`}>
+                  {totalWeightage.toFixed(0)}%
+                </span>
+                <p className="text-xs text-gray-400">/ 100%</p>
+              </div>
             </div>
 
             {/* Goals list */}
@@ -188,38 +183,38 @@ export default function EmployeeGoalSheet() {
               {goals.map(goal => {
                 const locked = goal.is_locked === true || goal.is_locked === 'true';
                 return (
-                <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-gray-800 text-sm">{goal.title}</span>
-                      {goal.is_shared && (
-                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Shared</span>
-                      )}
-                      {locked && (
-                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">🔒 Locked</span>
-                      )}
+                  <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-800 text-sm">{goal.title}</span>
+                        {goal.is_shared && (
+                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Shared</span>
+                        )}
+                        {locked && (
+                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">🔒 Locked</span>
+                        )}
+                      </div>
+                      {goal.description && <p className="text-xs text-gray-500 mb-1">{goal.description}</p>}
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                        <span>UoM: {goal.uom_type}</span>
+                        {goal.target_value && <span>Target: {goal.target_value}</span>}
+                        {goal.target_date && <span>By: {goal.target_date?.slice(0, 10)}</span>}
+                        <span className="font-medium text-gray-600">Weight: {goal.weightage}%</span>
+                      </div>
                     </div>
-                    {goal.description && <p className="text-xs text-gray-500 mb-1">{goal.description}</p>}
-                    <div className="flex flex-wrap gap-3 text-xs text-gray-400">
-                      <span>UoM: {goal.uom_type}</span>
-                      {goal.target_value && <span>Target: {goal.target_value}</span>}
-                      {goal.target_date && <span>By: {goal.target_date?.slice(0, 10)}</span>}
-                      <span className="font-medium text-gray-600">Weight: {goal.weightage}%</span>
-                    </div>
+                    {isEditable && !locked && (
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => { setEditGoal(goal); setShowForm(true); }}
+                          className="text-xs text-blue-600 hover:underline"
+                        >Edit</button>
+                        <button
+                          onClick={() => deleteGoal(goal.id)}
+                          className="text-xs text-red-500 hover:underline"
+                        >Delete</button>
+                      </div>
+                    )}
                   </div>
-                  {isEditable && !locked && (
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => { setEditGoal(goal); setShowForm(true); }}
-                        className="text-xs text-blue-600 hover:underline"
-                      >Edit</button>
-                      <button
-                        onClick={() => deleteGoal(goal.id)}
-                        className="text-xs text-red-500 hover:underline"
-                      >Delete</button>
-                    </div>
-                  )}
-                </div>
                 );
               })}
             </div>
@@ -260,6 +255,8 @@ export default function EmployeeGoalSheet() {
           onClose={() => { setShowForm(false); setEditGoal(null); }}
         />
       )}
+
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

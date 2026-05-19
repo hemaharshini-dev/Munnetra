@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import ProgressBar from '../../components/ProgressBar';
+import Toast from '../../components/Toast';
 import { useWindow } from '../../context/WindowContext';
 import { QUARTERS } from '../../constants';
 
@@ -43,12 +44,13 @@ export default function CheckinPage() {
   const [quarter, setQuarter] = useState('Q1');
   const [inputs, setInputs] = useState({});
   const [saving, setSaving] = useState({});
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
   const [noSheet, setNoSheet] = useState(false);
 
   const { activeWindow } = useWindow();
   const windowOpen = activeWindow?.action === 'checkin';
+
+  const showToast = (message, type = 'success') => setToast({ message, type });
 
   const load = useCallback(async () => {
     try {
@@ -77,7 +79,6 @@ export default function CheckinPage() {
   }
 
   async function save(goal) {
-    setError(''); setMessage('');
     const inp = inputs[goal.id] || {};
     setSaving(s => ({ ...s, [goal.id]: true }));
     try {
@@ -88,14 +89,26 @@ export default function CheckinPage() {
         actual_date:  inp.actual_date  || null,
         status:       inp.status || 'not_started',
       });
-      setMessage(`Saved — ${goal.title} (${quarter})`);
+      showToast(`Saved — ${goal.title} (${quarter})`);
       load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Save failed');
+      showToast(err.response?.data?.error || 'Save failed', 'error');
     } finally {
       setSaving(s => ({ ...s, [goal.id]: false }));
     }
   }
+
+  // Weighted overall score for the selected quarter
+  const overallScore = (() => {
+    const totalWeight = goals.reduce((s, g) => s + parseFloat(g.weightage || 0), 0);
+    if (!totalWeight) return null;
+    const weighted = goals.reduce((s, g) => {
+      const ach = (g.achievements || []).find(a => a.quarter === quarter);
+      return s + (ach?.progress_score ?? 0) * parseFloat(g.weightage || 0);
+    }, 0);
+    const hasAny = goals.some(g => (g.achievements || []).find(a => a.quarter === quarter));
+    return hasAny ? weighted / totalWeight : null;
+  })();
 
   if (noSheet) {
     return (
@@ -124,23 +137,6 @@ export default function CheckinPage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-1">Quarterly Check-in</h1>
         <p className="text-gray-500 text-sm mb-6">Log your actual achievement against each goal.</p>
 
-        {message && (
-          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {message}
-          </div>
-        )}
-        {error && (
-          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
-          </div>
-        )}
-
         {!windowOpen && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4 flex items-start gap-2">
             <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,12 +156,28 @@ export default function CheckinPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 mb-6 text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 w-fit">
+        <div className="flex items-center gap-2 mb-4 text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 w-fit">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <span><span className="font-semibold">{activeQ?.label}</span> · {activeQ?.period}</span>
         </div>
+
+        {/* Overall score card */}
+        {overallScore !== null && (
+          <div className="bg-white rounded-xl shadow-sm p-5 mb-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Overall Score — {activeQ?.label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Weighted across all goals</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-48"><ProgressBar score={overallScore} /></div>
+              <span className={`text-2xl font-bold ${overallScore >= 0.7 ? 'text-green-600' : overallScore >= 0.4 ? 'text-orange-500' : 'text-red-500'}`}>
+                {Math.round(overallScore * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {goals.map(goal => {
@@ -226,7 +238,6 @@ export default function CheckinPage() {
                     </div>
                   )}
 
-                  {/* FIX: status select also disabled for shared recipients */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Status</label>
                     <select
@@ -256,11 +267,31 @@ export default function CheckinPage() {
                 >
                   {saving[goal.id] ? 'Saving…' : `Save for ${activeQ?.label}`}
                 </button>
+
+                {/* Q1–Q4 progress timeline */}
+                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                  {['Q1','Q2','Q3','Q4'].map(q => {
+                    const a = (goal.achievements || []).find(x => x.quarter === q);
+                    const sc = a?.progress_score;
+                    return (
+                      <div key={q} className="flex-1 text-center">
+                        <div className={`h-1.5 rounded-full mb-1 transition-colors ${
+                          sc == null ? 'bg-gray-100' :
+                          sc >= 0.7 ? 'bg-green-400' :
+                          sc >= 0.4 ? 'bg-orange-400' : 'bg-red-400'
+                        }`} />
+                        <span className={`text-[10px] font-medium ${q === quarter ? 'text-blue-600' : 'text-gray-400'}`}>{q}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

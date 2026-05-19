@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
+import Toast from '../../components/Toast';
 import { useWindow } from '../../context/WindowContext';
 import AnalyticsTab from './AnalyticsTab';
 
@@ -39,6 +40,9 @@ export default function AdminDashboard() {
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+  const [stats, setStats] = useState(null);
+  const showToast = (msg, type = 'success') => setToast({ message: msg, type });
   const [selectedSheet, setSelectedSheet] = useState(null);
   const [unlockReasons, setUnlockReasons] = useState({});
   // confirmUnlock: { goalId, goalTitle, isShared, reason, isManual? }
@@ -65,6 +69,24 @@ export default function AdminDashboard() {
     loadSheets(); // eslint-disable-line react-hooks/exhaustive-deps
     api.get('/admin/employees').then(r => setEmployees(r.data));
     api.get('/thrust-areas').then(r => setThrustAreas(r.data));
+    // Load summary stats
+    Promise.all([
+      api.get('/admin/goal-sheets'),
+      api.get('/admin/completion-dashboard'),
+      api.get('/admin/escalations?resolved=false'),
+    ]).then(([sheetsRes, compRes, escRes]) => {
+      const s = sheetsRes.data;
+      const comp = compRes.data;
+      const total = comp.length;
+      const q1Done = comp.filter(r => r.q1_employee_done).length;
+      setStats({
+        total,
+        submitted: s.filter(x => x.status === 'submitted').length,
+        approved:  s.filter(x => x.status === 'approved').length,
+        openEscalations: escRes.data.length,
+        q1Pct: total ? Math.round((q1Done / total) * 100) : 0,
+      });
+    }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (tab === 'Cycle Windows') loadWindows(); }, [tab]);
@@ -86,26 +108,24 @@ export default function AdminDashboard() {
   }
 
   async function saveWindow(id) {
-    setError(''); setMessage('');
     try {
       await api.put(`/checkin-windows/${id}`, windowEdits[id]);
-      setMessage('Window updated.');
+      showToast('Window updated.');
       loadWindows();
       refreshWindow();
     } catch (err) {
-      setError(err.response?.data?.error || 'Update failed');
+      showToast(err.response?.data?.error || 'Update failed', 'error');
     }
   }
 
   async function activateNow(id) {
-    setError(''); setMessage('');
     try {
       await api.put(`/checkin-windows/${id}/activate`);
-      setMessage('Window set as active.');
+      showToast('Window set as active.');
       loadWindows();
       refreshWindow();
     } catch (err) {
-      setError(err.response?.data?.error || 'Activation failed');
+      showToast(err.response?.data?.error || 'Activation failed', 'error');
     }
   }
 
@@ -201,21 +221,16 @@ export default function AdminDashboard() {
     const { data } = await api.get(`/admin/goal-sheets/${sheetId}`);
     setSelectedSheet(data);
     setUnlockReasons({});
-    setError(''); setMessage('');
   }
 
-  // Called from modal — stages the confirmation popup
   function requestUnlock(goal) {
     const reason = unlockReasons[goal.id];
-    if (!reason?.trim()) { setError(`Enter a reason for Goal #${goal.id}`); return; }
-    setError('');
+    if (!reason?.trim()) { showToast(`Enter a reason for Goal #${goal.id}`, 'error'); return; }
     setConfirmUnlock({ goalId: goal.id, goalTitle: goal.title, isShared: goal.is_shared, reason });
   }
 
-  // Called from manual fallback input — stages the confirmation popup
   function requestManualUnlock() {
-    if (!unlockGoalId || !unlockComment) { setError('Goal ID and reason are required'); return; }
-    setError('');
+    if (!unlockGoalId || !unlockComment) { showToast('Goal ID and reason are required', 'error'); return; }
     setConfirmUnlock({ goalId: unlockGoalId, goalTitle: `Goal #${unlockGoalId}`, isShared: false, reason: unlockComment, isManual: true });
   }
 
@@ -225,26 +240,24 @@ export default function AdminDashboard() {
     setConfirmUnlock(null);
     try {
       await api.post(`/admin/goals/${goalId}/unlock`, { comment: reason });
-      setMessage(`Goal #${goalId} unlocked.`);
+      showToast(`Goal #${goalId} unlocked.`);
       if (isManual) { setUnlockGoalId(''); setUnlockComment(''); }
       else openSheet(selectedSheet.id);
-      // Refresh notification bell
       bellRef.current?.fetchNotifications();
     } catch (err) {
-      setError(err.response?.data?.error || 'Unlock failed');
+      showToast(err.response?.data?.error || 'Unlock failed', 'error');
     }
   }
 
   async function pushSharedGoal(ev) {
     ev.preventDefault();
-    setError(''); setMessage('');
-    if (!sharedForm.employee_ids.length) { setError('Select at least one employee'); return; }
+    if (!sharedForm.employee_ids.length) { showToast('Select at least one employee', 'error'); return; }
     try {
       await api.post('/shared-goals', { ...sharedForm, employee_ids: sharedForm.employee_ids.map(Number) });
-      setMessage('Shared goal pushed to selected employees.');
+      showToast('Shared goal pushed to selected employees.');
       setSharedForm({ thrust_area_id: '', title: '', description: '', uom_type: 'numeric_min', target_value: '', target_date: '', weightage: '', employee_ids: [] });
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to push shared goal');
+      showToast(err.response?.data?.error || 'Failed to push shared goal', 'error');
     }
   }
 
@@ -261,20 +274,20 @@ export default function AdminDashboard() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
 
-        {message && (
-          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {message}
-          </div>
-        )}
-        {error && (
-          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
+        {/* Summary stat cards */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {[
+              { label: 'Total Employees', value: stats.total,           color: 'text-blue-600',   bg: 'bg-blue-50'   },
+              { label: 'Sheets Submitted', value: stats.submitted,      color: 'text-yellow-600', bg: 'bg-yellow-50' },
+              { label: 'Sheets Approved',  value: stats.approved,       color: 'text-green-600',  bg: 'bg-green-50'  },
+              { label: 'Open Escalations', value: stats.openEscalations,color: 'text-red-600',    bg: 'bg-red-50'    },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} rounded-xl p-5`}>
+                <p className="text-xs text-gray-500 mb-1">{s.label}</p>
+                <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
           </div>
         )}
 
@@ -360,9 +373,6 @@ export default function AdminDashboard() {
                     </div>
                     <button onClick={() => setSelectedSheet(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
                   </div>
-
-                  {error && <p className="text-red-500 bg-red-50 p-2 rounded text-sm mb-3">{error}</p>}
-                  {message && <p className="text-green-600 bg-green-50 p-2 rounded text-sm mb-3">{message}</p>}
 
                   <div className="space-y-3">
                     {(selectedSheet.goals || []).map(goal => (
@@ -933,6 +943,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

@@ -82,7 +82,8 @@ Munnetra/
 │       │   ├── WindowBanner.js   # Active window status bar (all pages)
 │       │   ├── NotificationBell.js # Admin activity feed bell
 │       │   ├── GoalForm.js       # Add/edit goal modal
-│       │   └── ProgressBar.js    # Color-coded score bar (red/orange/green)
+│       │   ├── ProgressBar.js    # Color-coded score bar (red/orange/green)
+│       │   └── Toast.js          # Auto-dismissing slide-up notification
 │       ├── pages/
 │       │   ├── Login.js
 │       │   ├── employee/
@@ -311,7 +312,7 @@ The application is deployed and accessible at:
 **Goal Sheet (`/employee`)**
 - Create a goal sheet for the current cycle year (one per cycle)
 - Add up to 8 goals per sheet with Thrust Area, Title, Description, UoM, Target, Weightage
-- Live weightage counter — turns green at 100%, red otherwise
+- **Animated weightage donut chart** — SVG ring that fills as goals are added; green at 100%, yellow when under, red when over
 - Edit and delete goals while sheet is in `draft` or `rework` status
 - Submit for manager approval (blocked if total weightage ≠ 100%)
 - View shared goals — title and target are read-only, only weightage is editable
@@ -326,6 +327,8 @@ The application is deployed and accessible at:
 - Input types adapt to UoM: number field for numeric/zero, date picker for timeline
 - Status dropdown per goal: Not Started / On Track / Completed
 - Live progress score bar (red < 40%, orange 40–70%, green > 70%)
+- **Overall score card** — weighted average score across all goals shown at the top of the selected quarter
+- **Q1–Q4 progress timeline** — color-coded bar at the bottom of each goal card showing logged vs unlogged quarters at a glance
 - Re-save within the same open window (upsert)
 - Shared goal actual value is read-only — synced from source owner
 - All inputs disabled outside a check-in window
@@ -376,6 +379,8 @@ Nine-tab dashboard:
 **Cycle Windows** — edit open/close dates, Set Active Now shortcut for demo
 
 **Org Hierarchy** — view all users with their reporting manager; reassign an employee's manager inline via dropdown
+
+**Summary stat cards** — 4 cards at the top of the dashboard showing Total Employees, Sheets Submitted, Sheets Approved, and Open Escalations at a glance
 
 ---
 
@@ -512,23 +517,32 @@ Actions outside their window are blocked at the backend with a `403` response.
 
 ## 12. Escalation Module
 
-A daily cron job (runs at 9:00 AM) evaluates 3 rules and inserts records into the `escalations` table. No emails — all escalations are visible in the Admin Dashboard → Escalations tab.
+A daily cron job (runs at 9:00 AM) evaluates 3 rules and inserts records into the `escalations` table. **Escalations are system-generated automatically — no user manually triggers them.** No emails are sent; all escalations are visible only in the Admin Dashboard → Escalations tab.
+
+### How It Works
+
+- The `manager_id` field on an escalation record is a reference to the employee's reporting manager — it is not the actor who created the escalation.
+- Escalations are created by the backend cron job based purely on inactivity rules.
+- The only human action is the **Admin** marking an escalation as resolved.
+- Employees and managers do **not** see escalations in the UI — they are an Admin/HR visibility tool only.
 
 ### Rules
 
-| Rule | Trigger | Levels |
+| Rule | Trigger | Escalation Chain |
 |---|---|---|
 | Goal Not Submitted | Employee has no submitted sheet N days after goal-setting window opens | L1 → employee notified, L2 → manager notified, L3 → admin notified |
-| Approval Overdue | Sheet submitted but not approved within N days | L1 → manager notified, L2 → admin notified |
+| Approval Overdue | Sheet submitted but not approved within N days of submission | L1 → manager notified, L2 → admin notified |
 | Check-in Overdue | No achievements logged within N days before check-in window closes | L1 → employee notified, L2 → manager notified |
+
+> **Note:** "Notified" means an escalation record is inserted at that level — visible to Admin in the Escalations tab. There are no emails or in-app notifications to employees or managers.
 
 ### Configurable thresholds (in `escalationJob.js`)
 ```js
-goal_not_submitted_days: 7
-approval_overdue_days:   3
-checkin_overdue_days:    7
-level2_after_days:       3
-level3_after_days:       3
+goal_not_submitted_days: 7   // days after goal_setting window opens before L1
+approval_overdue_days:   3   // days after sheet submitted before L1
+checkin_overdue_days:    7   // days before window closes before L1
+level2_after_days:       3   // days after L1 before escalating to L2
+level3_after_days:       3   // days after L2 before escalating to L3
 ```
 
 ### Admin Escalations Tab
@@ -605,6 +619,11 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 
 **ProgressBar** — `score` prop (0.0–1.0); colored bar + percentage
 - < 40% → red · 40–70% → orange · > 70% → green
+
+**Toast** (`src/components/Toast.js`) — auto-dismissing notification that slides up from the bottom-right after any action
+- Dismisses after 3 seconds
+- Green for success, red for error
+- Replaces all inline success/error banners across employee and admin pages
 
 **AnalyticsTab** — 4 Recharts panels with cycle year filter and refresh
 
