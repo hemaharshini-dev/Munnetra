@@ -184,4 +184,34 @@ router.put('/escalations/:id/resolve', authenticate, requireRole('admin'), async
   res.json(rows[0]);
 });
 
+// Org hierarchy — list all users with their manager
+router.get('/users', authenticate, requireRole('admin'), async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.name, u.email, u.role, u.department,
+       u.manager_id, m.name AS manager_name
+     FROM users u
+     LEFT JOIN users m ON m.id = u.manager_id
+     ORDER BY u.role, u.name`
+  );
+  res.json(rows);
+});
+
+// Org hierarchy — reassign an employee's manager
+router.put('/users/:id/manager', authenticate, requireRole('admin'), async (req, res) => {
+  const { manager_id } = req.body;
+  const { rows: target } = await pool.query('SELECT * FROM users WHERE id=$1', [req.params.id]);
+  if (!target.length) return res.status(404).json({ error: 'User not found' });
+  if (target[0].role !== 'employee') return res.status(400).json({ error: 'Can only reassign manager for employees' });
+  if (manager_id) {
+    const { rows: mgr } = await pool.query('SELECT * FROM users WHERE id=$1', [manager_id]);
+    if (!mgr.length) return res.status(404).json({ error: 'Manager not found' });
+    if (mgr[0].role !== 'manager') return res.status(400).json({ error: 'Target user is not a manager' });
+  }
+  const { rows } = await pool.query(
+    `UPDATE users SET manager_id=$1 WHERE id=$2 RETURNING id, name, email, role, department, manager_id`,
+    [manager_id || null, req.params.id]
+  );
+  res.json(rows[0]);
+});
+
 module.exports = router;

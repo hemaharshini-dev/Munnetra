@@ -357,7 +357,7 @@ The application is deployed and accessible at:
 
 ### Admin (`/admin`)
 
-Eight-tab dashboard:
+Nine-tab dashboard:
 
 **Sheets** — view all sheets, filter by status/department, unlock locked goals with confirmation popup
 
@@ -374,6 +374,8 @@ Eight-tab dashboard:
 **Analytics** — 4 interactive charts (QoQ trends, completion rates, goal distribution, manager effectiveness)
 
 **Cycle Windows** — edit open/close dates, Set Active Now shortcut for demo
+
+**Org Hierarchy** — view all users with their reporting manager; reassign an employee's manager inline via dropdown
 
 ---
 
@@ -442,6 +444,8 @@ Eight-tab dashboard:
 | GET | `/api/admin/completion-dashboard` | Admin | Check-in completion per employee |
 | GET | `/api/admin/escalations` | Admin | All escalations with filters |
 | PUT | `/api/admin/escalations/:id/resolve` | Admin | Mark escalation as resolved |
+| GET | `/api/admin/users` | Admin | All users with manager assignments |
+| PUT | `/api/admin/users/:id/manager` | Admin | Reassign an employee's reporting manager |
 
 ### Analytics
 | Method | Endpoint | Role | Description |
@@ -568,6 +572,7 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 | Manager check-in only during checkin window | `POST /manager/checkins` |
 | Manager check-in comment cannot be empty | `POST /manager/checkins` |
 | Shared goal recipient cannot change actual value | `POST /achievements` |
+| Manager reassignment only allowed for employees | `PUT /admin/users/:id/manager` |
 
 ---
 
@@ -596,6 +601,7 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 **NotificationBell** — admin-only; fetches audit log, tracks unread via `localStorage`, dropdown with color-coded action feed
 
 **GoalForm** — modal for add/edit goal; UoM-aware (date picker for timeline, number for others)
+- UoM options match BRD terminology: `Numeric / % — Higher is Better`, `Numeric / % — Lower is Better`, `Timeline — Date-based`, `Zero-based — Zero = Success`
 
 **ProgressBar** — `score` prop (0.0–1.0); colored bar + percentage
 - < 40% → red · 40–70% → orange · > 70% → green

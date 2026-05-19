@@ -4,7 +4,7 @@ import Navbar from '../../components/Navbar';
 import { useWindow } from '../../context/WindowContext';
 import AnalyticsTab from './AnalyticsTab';
 
-const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Completion', 'Reports', 'Escalations', 'Analytics', 'Cycle Windows'];
+const TABS = ['Sheets', 'Shared Goals', 'Audit Log', 'Completion', 'Reports', 'Escalations', 'Analytics', 'Cycle Windows', 'Org Hierarchy'];
 
 const STATUS_COLORS = {
   draft:     'bg-gray-100 text-gray-600',
@@ -51,6 +51,11 @@ export default function AdminDashboard() {
 
   const [escalations, setEscalations] = useState([]);
   const [escalationFilters, setEscalationFilters] = useState({ type: '', resolved: 'false', department: '' });
+
+  const [orgUsers, setOrgUsers] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [orgMessage, setOrgMessage] = useState('');
+  const [orgError, setOrgError] = useState('');
 
   const { refresh: refreshWindow } = useWindow();
   const [windows, setWindows] = useState([]);
@@ -148,6 +153,26 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => { if (tab === 'Escalations') loadEscalations(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab !== 'Org Hierarchy') return; // eslint-disable-line react-hooks/exhaustive-deps
+    api.get('/admin/users').then(r => {
+      setOrgUsers(r.data);
+      setManagers(r.data.filter(u => u.role === 'manager'));
+    });
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function reassignManager(employeeId, managerId) {
+    setOrgError(''); setOrgMessage('');
+    try {
+      await api.put(`/admin/users/${employeeId}/manager`, { manager_id: managerId || null });
+      setOrgMessage('Manager updated.');
+      const r = await api.get('/admin/users');
+      setOrgUsers(r.data);
+    } catch (err) {
+      setOrgError(err.response?.data?.error || 'Update failed');
+    }
+  }
 
   async function loadEscalations() {
     const params = new URLSearchParams();
@@ -730,8 +755,72 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {/* ── Analytics Tab ── */}
-        {tab === 'Analytics' && <AnalyticsTab />}
+        {/* ── Org Hierarchy Tab ── */}
+        {tab === 'Org Hierarchy' && (
+          <>
+            {orgMessage && (
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {orgMessage}
+              </div>
+            )}
+            {orgError && (
+              <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {orgError}
+              </div>
+            )}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Department</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Reporting Manager</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {orgUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800">{u.name}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                          u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                          u.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>{u.role}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{u.department || '—'}</td>
+                      <td className="px-4 py-3">
+                        {u.role === 'employee' ? (
+                          <select
+                            className="border border-gray-300 rounded-lg px-2 py-1 text-xs"
+                            value={u.manager_id || ''}
+                            onChange={ev => reassignManager(u.id, ev.target.value)}
+                          >
+                            <option value="">No Manager</option>
+                            {managers.map(m => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-gray-400 text-xs">{u.manager_name || '—'}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* ── Cycle Windows Tab ── */}
         {tab === 'Cycle Windows' && (

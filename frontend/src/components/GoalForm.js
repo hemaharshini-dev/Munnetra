@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import api from '../api/client';
 
 const UOM_OPTIONS = [
-  { value: 'numeric_min', label: 'Numeric — Higher is Better (Min)' },
-  { value: 'numeric_max', label: 'Numeric — Lower is Better (Max)' },
-  { value: 'timeline', label: 'Timeline (Date-based)' },
-  { value: 'zero', label: 'Zero-based (0 = Success)' },
+  { value: 'numeric_min', label: 'Numeric / % — Higher is Better (e.g. Sales Revenue)' },
+  { value: 'numeric_max', label: 'Numeric / % — Lower is Better (e.g. TAT, Cost)' },
+  { value: 'timeline', label: 'Timeline — Date-based Completion' },
+  { value: 'zero', label: 'Zero-based — Zero = Success (e.g. Safety Incidents)' },
 ];
 
 export default function GoalForm({ goal, sheetId, onSave, onClose }) {
