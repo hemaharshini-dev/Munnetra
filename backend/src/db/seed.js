@@ -36,7 +36,7 @@ async function seed() {
   ];
   for (const [name, description] of areas) {
     await pool.query(
-      `INSERT INTO thrust_areas (name, description) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      `INSERT INTO thrust_areas (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING`,
       [name, description]
     );
   }
