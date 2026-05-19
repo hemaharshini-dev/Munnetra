@@ -100,6 +100,19 @@ async function migrate() {
       UNIQUE(period, cycle_year)
     );
 
+    -- Add unique constraint on thrust_areas.name if not already present
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'thrust_areas_name_key'
+      ) THEN
+        -- Remove duplicates first, keeping lowest id
+        DELETE FROM thrust_areas WHERE id NOT IN (
+          SELECT MIN(id) FROM thrust_areas GROUP BY name
+        );
+        ALTER TABLE thrust_areas ADD CONSTRAINT thrust_areas_name_key UNIQUE (name);
+      END IF;
+    END $$;
+
     -- Extend goal_approvals action constraint to include new Phase 2 actions
     ALTER TABLE goal_approvals DROP CONSTRAINT IF EXISTS goal_approvals_action_check;
     ALTER TABLE goal_approvals ADD CONSTRAINT goal_approvals_action_check
