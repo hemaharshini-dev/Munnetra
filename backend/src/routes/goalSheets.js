@@ -7,7 +7,25 @@ const CYCLE_YEAR = new Date().getFullYear();
 // Get or create own goal sheet
 router.get('/mine', authenticate, requireRole('employee'), async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT gs.*, json_agg(g.* ORDER BY g.id) FILTER (WHERE g.id IS NOT NULL) AS goals
+    `SELECT gs.*,
+       json_agg(
+         json_build_object(
+           'id', g.id,
+           'goal_sheet_id', g.goal_sheet_id,
+           'thrust_area_id', g.thrust_area_id,
+           'title', g.title,
+           'description', g.description,
+           'uom_type', g.uom_type,
+           'target_value', g.target_value,
+           'target_date', g.target_date,
+           'weightage', g.weightage,
+           'is_shared', g.is_shared::boolean,
+           'is_locked', g.is_locked::boolean,
+           'shared_from_goal_id', g.shared_from_goal_id,
+           'created_at', g.created_at,
+           'updated_at', g.updated_at
+         ) ORDER BY g.id
+       ) FILTER (WHERE g.id IS NOT NULL) AS goals
      FROM goal_sheets gs
      LEFT JOIN goals g ON g.goal_sheet_id = gs.id
      WHERE gs.employee_id=$1 AND gs.cycle_year=$2
@@ -144,7 +162,7 @@ async function getGoalForEmployee(goalId, userId) {
   const { rows } = await pool.query(
     `SELECT g.* FROM goals g
      JOIN goal_sheets gs ON gs.id = g.goal_sheet_id
-     WHERE g.id=$1 AND gs.employee_id=$2 AND gs.status IN ('draft','rework')`,
+     WHERE g.id=$1 AND gs.employee_id=$2`,
     [goalId, userId]
   );
   return rows[0] || null;

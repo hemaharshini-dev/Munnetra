@@ -3,13 +3,7 @@ import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import ProgressBar from '../../components/ProgressBar';
 import { useWindow } from '../../context/WindowContext';
-
-const QUARTERS = [
-  { key: 'Q1', label: 'Q1 (Jul–Sep)', period: 'July – September' },
-  { key: 'Q2', label: 'Q2 (Oct–Dec)', period: 'October – December' },
-  { key: 'Q3', label: 'Q3 (Jan–Feb)', period: 'January – February' },
-  { key: 'Q4', label: 'Q4 (Mar–Apr)', period: 'March – April · Final Review' },
-];
+import { QUARTERS } from '../../constants';
 
 const STATUS_OPTIONS = [
   { value: 'not_started', label: 'Not Started' },
@@ -47,7 +41,7 @@ function computeScore(uom_type, target_value, target_date, actual_value, actual_
 export default function CheckinPage() {
   const [goals, setGoals] = useState([]);
   const [quarter, setQuarter] = useState('Q1');
-  const [inputs, setInputs] = useState({});   // { [goalId]: { actual_value, actual_date, status } }
+  const [inputs, setInputs] = useState({});
   const [saving, setSaving] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -61,7 +55,6 @@ export default function CheckinPage() {
       const { data } = await api.get('/achievements/mine');
       if (!data.length) { setNoSheet(true); return; }
       setGoals(data);
-      // Pre-fill inputs from saved achievements for selected quarter
       const init = {};
       data.forEach(g => {
         const ach = (g.achievements || []).find(a => a.quarter === quarter);
@@ -108,12 +101,21 @@ export default function CheckinPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-400">
-          No approved goal sheet found for this cycle. Goals must be approved by your manager before you can log achievements.
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <div className="bg-white rounded-xl shadow-sm p-10">
+            <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p className="text-gray-500 text-sm">No approved goal sheet found for this cycle.</p>
+            <p className="text-gray-400 text-xs mt-1">Goals must be approved by your manager before you can log achievements.</p>
+          </div>
         </div>
       </div>
     );
   }
+
+  const activeQ = QUARTERS.find(q => q.key === quarter);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,13 +124,29 @@ export default function CheckinPage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-1">Quarterly Check-in</h1>
         <p className="text-gray-500 text-sm mb-6">Log your actual achievement against each goal.</p>
 
-        {message && <p className="text-green-600 bg-green-50 p-3 rounded-lg text-sm mb-4">{message}</p>}
-        {error   && <p className="text-red-500 bg-red-50 p-3 rounded-lg text-sm mb-4">{error}</p>}
+        {message && (
+          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-        {/* Window closed notice */}
         {!windowOpen && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4">
-            Check-in inputs are disabled. Achievement logging is only available during a Check-in window (Q1: Jul–Sep, Q2: Oct–Dec, Q3: Jan–Feb, Q4: Mar–Apr).
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4 flex items-start gap-2">
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            Check-in inputs are disabled. Achievement logging is only available during a Check-in window.
           </div>
         )}
 
@@ -141,12 +159,12 @@ export default function CheckinPage() {
             </button>
           ))}
         </div>
-        {/* Active quarter banner */}
+
         <div className="flex items-center gap-2 mb-6 text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 w-fit">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span><span className="font-semibold">{QUARTERS.find(q => q.key === quarter)?.label}</span> · {QUARTERS.find(q => q.key === quarter)?.period}</span>
+          <span><span className="font-semibold">{activeQ?.label}</span> · {activeQ?.period}</span>
         </div>
 
         <div className="space-y-4">
@@ -155,10 +173,10 @@ export default function CheckinPage() {
             const ach = (goal.achievements || []).find(a => a.quarter === quarter);
             const liveScore = computeScore(goal.uom_type, goal.target_value, goal.target_date, inp.actual_value, inp.actual_date);
             const isSharedRecipient = goal.is_shared && goal.shared_from_goal_id;
+            const inputDisabled = isSharedRecipient || !windowOpen;
 
             return (
               <div key={goal.id} className="bg-white rounded-xl shadow-sm p-5">
-                {/* Goal header */}
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -167,7 +185,7 @@ export default function CheckinPage() {
                         <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Shared</span>
                       )}
                     </div>
-                    <div className="flex gap-3 text-xs text-gray-400">
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-400">
                       {goal.thrust_area_name && <span>{goal.thrust_area_name}</span>}
                       <span>UoM: {goal.uom_type}</span>
                       {goal.target_value && <span>Target: {goal.target_value}</span>}
@@ -182,28 +200,25 @@ export default function CheckinPage() {
                   )}
                 </div>
 
-                {/* Inputs */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                  {/* Actual value — disabled for shared recipients */}
-                  {goal.uom_type !== 'timeline' && (
+                  {goal.uom_type !== 'timeline' ? (
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Actual Value</label>
                       <input
                         type="number"
-                        disabled={isSharedRecipient || !windowOpen}
+                        disabled={inputDisabled}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
                         value={inp.actual_value ?? ''}
                         onChange={e => setField(goal.id, 'actual_value', e.target.value)}
                       />
                       {isSharedRecipient && <p className="text-[11px] text-blue-500 mt-1">Synced from source owner</p>}
                     </div>
-                  )}
-                  {goal.uom_type === 'timeline' && (
+                  ) : (
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Actual Completion Date</label>
                       <input
                         type="date"
-                        disabled={isSharedRecipient || !windowOpen}
+                        disabled={inputDisabled}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                         value={inp.actual_date ?? ''}
                         onChange={e => setField(goal.id, 'actual_date', e.target.value)}
@@ -211,11 +226,12 @@ export default function CheckinPage() {
                     </div>
                   )}
 
-                  {/* Status */}
+                  {/* FIX: status select also disabled for shared recipients */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Status</label>
                     <select
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      disabled={inputDisabled}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
                       value={inp.status ?? 'not_started'}
                       onChange={e => setField(goal.id, 'status', e.target.value)}
                     >
@@ -225,7 +241,6 @@ export default function CheckinPage() {
                     </select>
                   </div>
 
-                  {/* Live score */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Progress Score</label>
                     <div className="pt-1">
@@ -237,9 +252,9 @@ export default function CheckinPage() {
                 <button
                   onClick={() => save(goal)}
                   disabled={saving[goal.id] || !windowOpen}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition"
                 >
-                  {saving[goal.id] ? 'Saving…' : `Save for ${QUARTERS.find(q => q.key === quarter)?.label}`}
+                  {saving[goal.id] ? 'Saving…' : `Save for ${activeQ?.label}`}
                 </button>
               </div>
             );

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import Navbar from '../../components/Navbar';
+import { QUARTERS } from '../../constants';
 
 const STATUS_COLORS = {
   draft:     'bg-gray-100 text-gray-600',
@@ -10,22 +11,14 @@ const STATUS_COLORS = {
   rework:    'bg-red-100 text-red-700',
 };
 
-const QUARTERS = [
-  { key: 'Q1', label: 'Q1 (Jul–Sep)' },
-  { key: 'Q2', label: 'Q2 (Oct–Dec)' },
-  { key: 'Q3', label: 'Q3 (Jan–Feb)' },
-  { key: 'Q4', label: 'Q4 (Mar–Apr)' },
-];
-
 export default function ManagerDashboard() {
   const [sheets, setSheets] = useState([]);
-  const [checkinMap, setCheckinMap] = useState({}); // { sheetId: [quarter, ...] }
+  const [checkinMap, setCheckinMap] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/manager/team-sheets').then(async r => {
       setSheets(r.data);
-      // Load check-in completion for each approved sheet
       const map = {};
       await Promise.all(
         r.data

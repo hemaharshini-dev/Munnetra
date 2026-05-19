@@ -3,10 +3,15 @@ import { useWindow } from '../context/WindowContext';
 export default function WindowBanner() {
   const { activeWindow } = useWindow();
 
-  // Still loading
-  if (activeWindow === undefined) return null;
+  if (activeWindow === undefined) {
+    return (
+      <div className="bg-gray-100 border-b border-gray-200 px-6 py-2 flex items-center gap-2">
+        <div className="w-4 h-4 bg-gray-200 rounded animate-pulse shrink-0" />
+        <div className="h-3 w-64 bg-gray-200 rounded animate-pulse" />
+      </div>
+    );
+  }
 
-  // No active window
   if (!activeWindow) {
     return (
       <div className="bg-gray-100 border-b border-gray-200 px-6 py-2 flex items-center gap-2 text-sm text-gray-500">
@@ -19,11 +24,10 @@ export default function WindowBanner() {
     );
   }
 
-  // Check if closing soon (within 7 days)
   const daysLeft = Math.ceil((new Date(activeWindow.closes_at) - Date.now()) / 86400000);
   const closingSoon = daysLeft <= 7;
-
   const isGoalSetting = activeWindow.action === 'goal_setting';
+
   const colorClass = closingSoon
     ? 'bg-orange-50 border-orange-200 text-orange-700'
     : isGoalSetting
@@ -42,7 +46,11 @@ export default function WindowBanner() {
         {new Date(activeWindow.opens_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
         {' – '}
         {new Date(activeWindow.closes_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        {closingSoon && <span className="ml-2 font-medium">· Closes in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</span>}
+        {closingSoon && (
+          <span className="ml-2 font-semibold">
+            · ⚠ Closes in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+          </span>
+        )}
       </span>
     </div>
   );

@@ -4,13 +4,7 @@ import api from '../../api/client';
 import Navbar from '../../components/Navbar';
 import ProgressBar from '../../components/ProgressBar';
 import { useWindow } from '../../context/WindowContext';
-
-const QUARTERS = [
-  { key: 'Q1', label: 'Q1 (Jul–Sep)', period: 'July – September' },
-  { key: 'Q2', label: 'Q2 (Oct–Dec)', period: 'October – December' },
-  { key: 'Q3', label: 'Q3 (Jan–Feb)', period: 'January – February' },
-  { key: 'Q4', label: 'Q4 (Mar–Apr)', period: 'March – April · Final Review' },
-];
+import { QUARTERS } from '../../constants';
 
 const STATUS_COLORS = {
   not_started: 'bg-gray-100 text-gray-500',
@@ -59,6 +53,7 @@ export default function ManagerCheckin() {
   }
 
   const existingCheckin = data ? (data.checkins || []).find(c => c.quarter === quarter) : null;
+  const activeQ = QUARTERS.find(q => q.key === quarter);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,8 +72,22 @@ export default function ManagerCheckin() {
           </div>
         )}
 
-        {message && <p className="text-green-600 bg-green-50 p-3 rounded-lg text-sm mb-4">{message}</p>}
-        {error   && <p className="text-red-500 bg-red-50 p-3 rounded-lg text-sm mb-4">{error}</p>}
+        {message && (
+          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg text-sm mb-4">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg text-sm mb-4">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
         {/* Quarter tabs */}
         <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg w-fit">
@@ -92,15 +101,14 @@ export default function ManagerCheckin() {
             </button>
           ))}
         </div>
-        {/* Active quarter banner */}
+
         <div className="flex items-center gap-2 mb-6 text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 w-fit">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span><span className="font-semibold">{QUARTERS.find(q => q.key === quarter)?.label}</span> · {QUARTERS.find(q => q.key === quarter)?.period}</span>
+          <span><span className="font-semibold">{activeQ?.label}</span> · {activeQ?.period}</span>
         </div>
 
-        {/* Goals — planned vs actual */}
         {data && (
           <>
             <div className="space-y-3 mb-6">
@@ -120,7 +128,6 @@ export default function ManagerCheckin() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 text-sm">
-                    {/* Planned */}
                     <div className="bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-400 mb-1">Planned Target</p>
                       <p className="font-semibold text-gray-700">
@@ -130,8 +137,6 @@ export default function ManagerCheckin() {
                       </p>
                       <p className="text-xs text-gray-400 mt-1">{goal.uom_type}</p>
                     </div>
-
-                    {/* Actual */}
                     <div className="bg-blue-50 rounded-lg p-3">
                       <p className="text-xs text-gray-400 mb-1">Actual Achievement</p>
                       <p className="font-semibold text-blue-700">
@@ -141,8 +146,6 @@ export default function ManagerCheckin() {
                       </p>
                       <p className="text-xs text-gray-400 mt-1">Weightage: {goal.weightage}%</p>
                     </div>
-
-                    {/* Score */}
                     <div className="bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-400 mb-2">Progress Score</p>
                       <ProgressBar score={goal.progress_score} />
@@ -152,48 +155,51 @@ export default function ManagerCheckin() {
               ))}
             </div>
 
-            {/* Window closed notice */}
             {!windowOpen && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4">
-                Check-in submission is only available during a Check-in window (Q1: Jul–Sep, Q2: Oct–Dec, Q3: Jan–Feb, Q4: Mar–Apr).
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-4 flex items-start gap-2">
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                Check-in submission is only available during a Check-in window.
               </div>
             )}
 
-            {/* Check-in comment */}
             <div className="bg-white rounded-xl shadow-sm p-5">
               <h2 className="font-semibold text-gray-800 mb-1">
-                {existingCheckin ? `${QUARTERS.find(q => q.key === quarter)?.label} Check-in Comment` : `Submit ${QUARTERS.find(q => q.key === quarter)?.label} Check-in`}
+                {existingCheckin ? `${activeQ?.label} Check-in Comment` : `Submit ${activeQ?.label} Check-in`}
               </h2>
               {existingCheckin ? (
                 <>
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mb-3">{existingCheckin.comment}</p>
-                  <p className="text-xs text-gray-400">Submitted {new Date(existingCheckin.created_at).toLocaleString()}</p>
-                  <p className="text-xs text-gray-400 mt-2">To update, edit the comment below and resubmit.</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mb-1">{existingCheckin.comment}</p>
+                  <p className="text-xs text-gray-400 mb-3">Submitted {new Date(existingCheckin.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mb-2">To update, edit the comment below and resubmit.</p>
                   <textarea
                     rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-3"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
                     placeholder="Update comment…"
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                   />
                   <button onClick={submitCheckin} disabled={saving || !windowOpen}
-                    className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
                     {saving ? 'Saving…' : 'Update Check-in'}
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-gray-400 mb-3">Document your discussion with the employee for {QUARTERS.find(q => q.key === quarter)?.label} ({QUARTERS.find(q => q.key === quarter)?.period}).</p>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Document your discussion with the employee for {activeQ?.label} ({activeQ?.period}).
+                  </p>
                   <textarea
                     rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-300"
                     placeholder="Enter your check-in comment…"
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                   />
                   <button onClick={submitCheckin} disabled={saving || !windowOpen}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-                    {saving ? 'Submitting…' : `Submit ${QUARTERS.find(q => q.key === quarter)?.label} Check-in`}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition">
+                    {saving ? 'Submitting…' : `Submit ${activeQ?.label} Check-in`}
                   </button>
                 </>
               )}

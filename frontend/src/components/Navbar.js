@@ -35,7 +35,10 @@ export default function Navbar({ bellRef }) {
     <div>
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <span className="font-bold text-gray-800 text-lg">Goal Tracker</span>
+          <div>
+            <p className="text-[9px] text-blue-500 font-semibold tracking-widest uppercase leading-none">Atomberg</p>
+            <span className="font-bold text-gray-800 text-base leading-tight">Munnetra</span>
+          </div>
           {user?.role === 'employee' && (
             <div className="flex gap-1">
               {navLink('/employee', 'My Goals')}

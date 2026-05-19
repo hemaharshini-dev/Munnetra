@@ -9,7 +9,7 @@ router.get('/active', authenticate, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT * FROM check_in_windows
      WHERE cycle_year=$1 AND opens_at <= CURRENT_DATE AND closes_at >= CURRENT_DATE
-     ORDER BY opens_at DESC LIMIT 1`,
+     ORDER BY CASE action WHEN 'goal_setting' THEN 0 ELSE 1 END, opens_at DESC LIMIT 1`,
     [CYCLE_YEAR]
   );
   res.json(rows[0] || null);

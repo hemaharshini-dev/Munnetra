@@ -52,7 +52,7 @@ async function seed() {
   // Demo override: Q1 opens yesterday, closes far future so check-in is always demonstrable
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const windows = [
-    { period: 'goal_setting', label: 'Goal Setting (May–Jun)',  opens_at: `${YEAR}-05-01`,   closes_at: `${YEAR}-06-30`,   action: 'goal_setting' },
+    { period: 'goal_setting', label: 'Goal Setting (May–Jun)',  opens_at: yesterday,          closes_at: `${YEAR + 2}-12-31`, action: 'goal_setting' },
     { period: 'Q1',           label: 'Q1 Check-in (Jul–Sep)',  opens_at: yesterday,          closes_at: `${YEAR + 2}-12-31`, action: 'checkin' },
     { period: 'Q2',           label: 'Q2 Check-in (Oct–Dec)',  opens_at: `${YEAR}-10-01`,   closes_at: `${YEAR}-12-31`,   action: 'checkin' },
     { period: 'Q3',           label: 'Q3 Check-in (Jan–Feb)',  opens_at: `${YEAR + 1}-01-01`, closes_at: `${YEAR + 1}-02-28`, action: 'checkin' },
