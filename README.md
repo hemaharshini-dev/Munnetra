@@ -265,7 +265,7 @@ The application is deployed and accessible at:
 
 | Layer | URL |
 |---|---|
-| Frontend | https://munnetra.vercel.app |
+| Frontend | https://munnetra-atomberg.vercel.app |
 | Backend API | https://munnetra.onrender.com |
 
 ### Hosting Stack
