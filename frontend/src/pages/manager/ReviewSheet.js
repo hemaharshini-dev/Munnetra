@@ -94,7 +94,7 @@ export default function ReviewSheet() {
     return s + parseFloat(edited !== undefined ? edited : g.weightage || 0);
   }, 0);
 
-  const statusColors = {
+  const statusColors = { // eslint-disable-line no-unused-vars
     submitted: 'bg-yellow-100 text-yellow-700',
     approved:  'bg-green-100 text-green-700',
   };

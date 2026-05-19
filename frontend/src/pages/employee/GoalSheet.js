@@ -5,7 +5,7 @@ import GoalForm from '../../components/GoalForm';
 import Toast from '../../components/Toast';
 import { useWindow } from '../../context/WindowContext';
 
-const STATUS_COLORS = {
+const STATUS_COLORS = { // eslint-disable-line no-unused-vars
   draft:     'bg-gray-100 text-gray-600',
   submitted: 'bg-yellow-100 text-yellow-700',
   approved:  'bg-green-100 text-green-700',

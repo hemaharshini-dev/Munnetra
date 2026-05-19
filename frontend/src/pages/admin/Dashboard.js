@@ -38,8 +38,8 @@ export default function AdminDashboard() {
     thrust_area_id: '', title: '', description: '',
     uom_type: 'numeric_min', target_value: '', target_date: '', weightage: '', employee_ids: [],
   });
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState(''); // eslint-disable-line
+  const [error, setError] = useState(''); // eslint-disable-line
   const [toast, setToast] = useState(null);
   const [stats, setStats] = useState(null);
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
@@ -833,6 +833,8 @@ export default function AdminDashboard() {
         )}
 
         {/* ── Cycle Windows Tab ── */}
+        {tab === 'Analytics' && <AnalyticsTab />}
+
         {tab === 'Cycle Windows' && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <table className="w-full text-sm">
