@@ -121,7 +121,11 @@ async function migrate() {
   `);
 
   console.log('Migration complete.');
-  await pool.end();
 }
 
-migrate().catch(err => { console.error(err); process.exit(1); });
+module.exports = migrate;
+
+// Run directly: node src/db/migrate.js
+if (require.main === module) {
+  migrate().then(() => pool.end()).catch(err => { console.error(err); process.exit(1); });
+}

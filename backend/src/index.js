@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const migrate = require('./db/migrate');
+const seed = require('./db/seed');
 
 const app = express();
 app.use(cors({
@@ -25,7 +27,14 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  require('./jobs/escalationJob').start();
-});
+
+async function start() {
+  await migrate();
+  await seed();
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    require('./jobs/escalationJob').start();
+  });
+}
+
+start().catch(err => { console.error('Startup failed:', err); process.exit(1); });
