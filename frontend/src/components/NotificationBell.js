@@ -28,13 +28,17 @@ const NotificationBell = forwardRef(function NotificationBell(_, ref) {
   }, []);
 
   async function fetchNotifications() {
-    const { data } = await api.get('/admin/audit-log');
-    setNotifications(data);
-    const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
-    const count = lastSeen
-      ? data.filter(n => new Date(n.timestamp) > new Date(lastSeen)).length
-      : data.length;
-    setUnread(count);
+    try {
+      const { data } = await api.get('/admin/audit-log');
+      setNotifications(data);
+      const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+      const count = lastSeen
+        ? data.filter(n => new Date(n.timestamp) > new Date(lastSeen)).length
+        : data.length;
+      setUnread(count);
+    } catch {
+      // non-critical — bell stays empty on error
+    }
   }
 
   function handleOpen() {

@@ -19,14 +19,16 @@ export default function ManagerDashboard() {
   useEffect(() => {
     api.get('/manager/team-sheets').then(async r => {
       setSheets(r.data);
+      // Fetch checkins only for approved sheets, in one batch
+      const approved = r.data.filter(s => s.status === 'approved');
+      if (!approved.length) return;
       const map = {};
       await Promise.all(
-        r.data
-          .filter(s => s.status === 'approved')
-          .map(async s => {
-            const res = await api.get(`/manager/checkins/${s.id}?quarter=Q1`);
-            map[s.id] = (res.data.checkins || []).map(c => c.quarter);
-          })
+        approved.map(async s => {
+          const res = await api.get(`/manager/checkins/${s.id}?quarter=Q1`);
+          // checkins array contains all quarters for this sheet
+          map[s.id] = (res.data.checkins || []).map(c => c.quarter);
+        })
       );
       setCheckinMap(map);
     });

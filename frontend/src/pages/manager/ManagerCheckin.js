@@ -52,6 +52,22 @@ export default function ManagerCheckin() {
     }
   }
 
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-3">
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-white rounded-xl shadow-sm p-4 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+              <div className="h-3 bg-gray-100 rounded w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const existingCheckin = data ? (data.checkins || []).find(c => c.quarter === quarter) : null;
   const activeQ = QUARTERS.find(q => q.key === quarter);
 

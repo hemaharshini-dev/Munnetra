@@ -23,7 +23,8 @@ Built for **ATOMQUEST Hackathon 1.0** — covers BRD sections 2.1 (Phase 1), 2.2
 13. [Validation Rules](#13-validation-rules)
 14. [Component & Context Reference](#14-component--context-reference)
 15. [Troubleshooting](#15-troubleshooting)
-16. [Build Docs](#16-build-docs)
+16. [Cost Optimisation](#16-cost-optimisation)
+17. [Build Docs](#17-build-docs)
 
 ---
 
@@ -588,7 +589,67 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 
 ---
 
-## 16. Build Docs
+## 16. Cost Optimisation
+
+This section documents every architectural and implementation decision made to keep the solution efficient, low-cost, and scalable.
+
+### Infrastructure Choices
+
+| Decision | Rationale |
+|---|---|
+| Node.js + Express (single process) | Lightweight runtime with low memory footprint; no JVM or heavy framework overhead |
+| PostgreSQL (single instance) | One relational DB covers all data needs — no separate cache store, message queue, or search index required at this scale |
+| React SPA (static build) | Entire frontend is a static bundle — can be served from S3 + CloudFront at near-zero cost; no server-side rendering infrastructure needed |
+| JWT (stateless auth) | No session store required — tokens are verified in-process with no DB or Redis lookup on every request |
+| node-cron (in-process scheduler) | Escalation job runs inside the Express process — no separate worker, Lambda, or queue service needed |
+| Recharts (client-side charting) | All chart rendering happens in the browser — no server-side image generation or third-party chart API calls |
+
+---
+
+### API Call Efficiency
+
+| Pattern | Implementation |
+|---|---|
+| Aggregated goal sheet query | `GET /goal-sheets/mine` returns the sheet and all goals in a single query using `json_agg` — no separate goals fetch needed |
+| Aggregated achievements query | `GET /achievements/mine` returns all goals with all quarters' achievements in one query using `json_agg` — no per-goal or per-quarter requests |
+| Aggregated manager check-in query | `GET /manager/checkins/:sheetId` returns goals, achievements, and all check-in comments for the sheet in one round trip |
+| Achievement report as single query | `GET /admin/achievement-report` uses four lateral joins (one per quarter) to return all Q1–Q4 data in a single SQL query instead of four separate requests |
+| Analytics: parallel fetch | `AnalyticsTab` fires all 4 analytics endpoints simultaneously with `Promise.all` — total load time equals the slowest query, not the sum |
+| Analytics: fetch-on-refresh only | The cycle year input is decoupled from the fetch trigger — data only reloads when the Refresh button is clicked, not on every keystroke |
+| Admin tab lazy loading | Each admin tab (Audit Log, Completion, Reports, Escalations, Cycle Windows) fetches data only when that tab is first opened — no upfront bulk load |
+| Shared goal push: single transaction | All recipient goal inserts and assignment records are wrapped in a single `BEGIN/COMMIT` transaction — one round trip to the DB regardless of recipient count |
+
+---
+
+### Database Efficiency
+
+| Decision | Rationale |
+|---|---|
+| `UNIQUE` constraints as natural deduplication | `UNIQUE(employee_id, cycle_year)` on `goal_sheets`, `UNIQUE(goal_id, quarter, cycle_year)` on `goal_achievements`, and `UNIQUE(goal_sheet_id, quarter, cycle_year)` on `manager_checkins` allow `ON CONFLICT DO UPDATE` upserts — no separate SELECT + INSERT/UPDATE round trips |
+| Progress score stored on save | `progress_score` is computed once at write time and stored in `goal_achievements` — analytics and reports read the stored value directly with no recomputation |
+| `json_agg` in SQL | Nested data (goals inside sheets, achievements inside goals) is assembled in the DB layer rather than making multiple queries and joining in application code |
+| `JSONB` for audit diff | `changed_fields` in `goal_approvals` uses JSONB — flexible schema for before/after diffs without extra audit detail tables |
+| `CREATE TABLE IF NOT EXISTS` migrations | Non-destructive migrations mean re-running `npm run migrate` is safe — no teardown/rebuild cost in CI or demo resets |
+
+---
+
+### Hosting Cost Awareness
+
+For a production deployment on AWS, the recommended low-cost architecture is:
+
+| Component | AWS Service | Estimated Cost |
+|---|---|---|
+| Backend API | EC2 t3.micro or Elastic Beanstalk (single instance) | ~$8–10/month |
+| Database | RDS PostgreSQL db.t3.micro (single-AZ) | ~$15/month |
+| Frontend | S3 static hosting + CloudFront CDN | ~$1–2/month |
+| Escalation job | Runs inside the Express process — no Lambda or EventBridge needed | $0 extra |
+| **Total** | | **~$25/month** |
+
+For a hackathon demo, the entire stack runs locally at zero cost.
+
+---
+
+## 17. Build Docs
 
 All planning, setup, and verification documents are in the `Build docs/` folder:
 

@@ -41,7 +41,13 @@ export default function AnalyticsTab() {
     }
   }
 
+  const [yearInput, setYearInput] = useState(new Date().getFullYear());
+
   useEffect(() => { loadAll(cycleYear); }, [cycleYear]);
+
+  function handleYearRefresh() {
+    if (yearInput >= 2020 && yearInput <= 2099) setCycleYear(yearInput);
+  }
 
   return (
     <div className="space-y-6">
@@ -51,10 +57,10 @@ export default function AnalyticsTab() {
         <input
           type="number"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28"
-          value={cycleYear}
-          onChange={e => setCycleYear(parseInt(e.target.value))}
+          value={yearInput}
+          onChange={e => setYearInput(parseInt(e.target.value))}
         />
-        <button onClick={() => loadAll(cycleYear)}
+        <button onClick={handleYearRefresh}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
           Refresh
         </button>

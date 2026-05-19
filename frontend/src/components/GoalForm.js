@@ -40,10 +40,16 @@ export default function GoalForm({ goal, sheetId, onSave, onClose }) {
     if (parseFloat(form.weightage) < 10) { setError('Minimum weightage is 10%'); return; }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        target_value: form.target_value !== '' ? form.target_value : null,
+        target_date:  form.target_date  !== '' ? form.target_date  : null,
+        thrust_area_id: form.thrust_area_id !== '' ? form.thrust_area_id : null,
+      };
       if (goal) {
-        await api.put(`/goal-sheets/goals/${goal.id}`, form);
+        await api.put(`/goal-sheets/goals/${goal.id}`, payload);
       } else {
-        await api.post(`/goal-sheets/${sheetId}/goals`, form);
+        await api.post(`/goal-sheets/${sheetId}/goals`, payload);
       }
       onSave();
     } catch (err) {
