@@ -136,7 +136,6 @@ export default function ReviewSheet() {
 
         <div className="space-y-3 mb-6">
           {goals.map(goal => {
-            const e = edits[goal.id] || {};
             const isSubmitted = sheet.status === 'submitted';
             return (
               <div key={goal.id} className="bg-white rounded-xl shadow-sm p-4">

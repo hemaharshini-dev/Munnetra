@@ -57,10 +57,10 @@ export default function AdminDashboard() {
   const [windowEdits, setWindowEdits] = useState({});
 
   useEffect(() => {
-    loadSheets();
+    loadSheets(); // eslint-disable-line react-hooks/exhaustive-deps
     api.get('/admin/employees').then(r => setEmployees(r.data));
     api.get('/thrust-areas').then(r => setThrustAreas(r.data));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (tab === 'Cycle Windows') loadWindows(); }, [tab]);
 
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url);
   }
 
-  useEffect(() => { if (tab === 'Escalations') loadEscalations(); }, [tab]);
+  useEffect(() => { if (tab === 'Escalations') loadEscalations(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadEscalations() {
     const params = new URLSearchParams();
@@ -168,9 +168,9 @@ export default function AdminDashboard() {
     setAuditLog(data);
   }
 
-  useEffect(() => { if (tab === 'Audit Log') loadAudit(); }, [tab]);
-  useEffect(() => { if (tab === 'Completion') loadCompletion(); }, [tab]);
-  useEffect(() => { if (tab === 'Reports') loadReport(); }, [tab]);
+  useEffect(() => { if (tab === 'Audit Log') loadAudit(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tab === 'Completion') loadCompletion(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tab === 'Reports') loadReport(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openSheet(sheetId) {
     const { data } = await api.get(`/admin/goal-sheets/${sheetId}`);
@@ -210,8 +210,8 @@ export default function AdminDashboard() {
     }
   }
 
-  async function pushSharedGoal(e) {
-    e.preventDefault();
+  async function pushSharedGoal(ev) {
+    ev.preventDefault();
     setError(''); setMessage('');
     if (!sharedForm.employee_ids.length) { setError('Select at least one employee'); return; }
     try {
