@@ -106,8 +106,10 @@ Before testing Phase 1, the Goal Setting window must be active.
 | 4 | Submit without a comment | Error: comment is required |
 | 5 | Enter a comment and click **Send Back** | Sheet status changes to `rework` (red badge) |
 | 6 | Log back in as **employee@demo.com** | — |
-| 7 | Observe the goal sheet | Orange rework banner shown, goals are editable again |
+| 7 | Observe the goal sheet | Orange rework banner shown with manager's comment, goals are editable again |
 | 8 | Edit a goal, resubmit | Sheet status returns to `submitted` |
+
+> **Note:** The rework comment is fetched via `GET /api/goal-sheets/:id/rework-comment` (employee-accessible). A previous bug had the frontend calling the admin-only `/admin/audit-log` endpoint, which returned 403 for employees and silently showed no comment.
 
 ---
 
@@ -167,6 +169,8 @@ Before testing Phase 1, the Goal Setting window must be active.
 | 6 | View the goal sheet | New goal appears with **Shared** blue badge |
 | 7 | Try to edit the Title or Target of the shared goal | Fields are disabled / read-only |
 | 8 | Edit the Weightage of the shared goal | ✅ Weightage field is editable |
+
+> **Note on sync:** The admin/manager who pushes the shared goal becomes the source owner. When they log achievements on their own goal sheet for the source goal, actuals propagate to all recipient copies. The source goal is `is_shared=FALSE`; recipient copies are `is_shared=TRUE` with `shared_from_goal_id` pointing to the source.
 
 ---
 

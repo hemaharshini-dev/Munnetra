@@ -59,6 +59,8 @@ const RULES = {
 
 New file: `backend/src/jobs/escalationJob.js`
 
+> **Bug fix (post-build):** `CYCLE_YEAR` was previously a module-level constant, meaning it would use the wrong year if the server ran across a year boundary without a restart. Fixed by computing `CYCLE_YEAR = new Date().getFullYear()` inside `runEscalations()` on every invocation, and passing it as a parameter to each rule function.
+
 **Rule 1 — Goal Not Submitted**
 ```
 IF goal_setting window is currently open

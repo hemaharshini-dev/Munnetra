@@ -150,6 +150,19 @@ router.delete('/goals/:id', authenticate, requireRole('employee'), async (req, r
   res.json({ message: 'Goal deleted' });
 });
 
+// Get the latest rework comment for own sheet (employee-accessible)
+router.get('/:id/rework-comment', authenticate, requireRole('employee'), async (req, res) => {
+  const sheet = await getOwnSheet(req.params.id, req.user.id);
+  if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
+  const { rows } = await pool.query(
+    `SELECT comment FROM goal_approvals
+     WHERE goal_sheet_id=$1 AND action='returned'
+     ORDER BY timestamp DESC LIMIT 1`,
+    [sheet.id]
+  );
+  res.json({ comment: rows[0]?.comment || null });
+});
+
 // Helpers
 async function getOwnSheet(sheetId, userId) {
   const { rows } = await pool.query(

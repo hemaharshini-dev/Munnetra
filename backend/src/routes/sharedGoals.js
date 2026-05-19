@@ -17,6 +17,35 @@ router.post('/', authenticate, requireRole('admin', 'manager'), async (req, res)
   try {
     await client.query('BEGIN');
 
+    // Create one canonical source goal (not shared, not on any employee's sheet)
+    // We attach it to the first employee's sheet temporarily just to satisfy the FK,
+    // but mark it as the source via shared_from_goal_id=NULL and is_shared=FALSE.
+    // Actually: store source goal on a neutral sheet — simplest is a standalone insert
+    // with a dummy sheet. Instead, we use the cleaner approach: source goal belongs to
+    // the pushing user (admin/manager). Find or create their sheet.
+    let sourceSheetRes = await client.query(
+      'SELECT id FROM goal_sheets WHERE employee_id=$1 AND cycle_year=$2',
+      [req.user.id, CYCLE_YEAR]
+    );
+    let sourceSheetId;
+    if (sourceSheetRes.rows.length === 0) {
+      const ns = await client.query(
+        `INSERT INTO goal_sheets (employee_id, cycle_year, status) VALUES ($1, $2, 'approved') RETURNING id`,
+        [req.user.id, CYCLE_YEAR]
+      );
+      sourceSheetId = ns.rows[0].id;
+    } else {
+      sourceSheetId = sourceSheetRes.rows[0].id;
+    }
+
+    // Insert the canonical source goal (is_shared=FALSE, shared_from_goal_id=NULL)
+    const sourceGoalRes = await client.query(
+      `INSERT INTO goals (goal_sheet_id, thrust_area_id, title, description, uom_type, target_value, target_date, weightage, is_shared)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,FALSE) RETURNING *`,
+      [sourceSheetId, thrust_area_id, title, description, uom_type, target_value || null, target_date || null, weightage]
+    );
+    const sourceGoalId = sourceGoalRes.rows[0].id;
+
     const results = [];
     for (const empId of employee_ids) {
       // Ensure employee has a goal sheet for this cycle
@@ -42,16 +71,17 @@ router.post('/', authenticate, requireRole('admin', 'manager'), async (req, res)
         return res.status(400).json({ error: `Employee ${empId} already has 8 goals` });
       }
 
+      // Recipient copy: is_shared=TRUE, shared_from_goal_id points to source
       const goalRes = await client.query(
-        `INSERT INTO goals (goal_sheet_id, thrust_area_id, title, description, uom_type, target_value, target_date, weightage, is_shared)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE) RETURNING *`,
-        [sheetId, thrust_area_id, title, description, uom_type, target_value || null, target_date || null, weightage]
+        `INSERT INTO goals (goal_sheet_id, thrust_area_id, title, description, uom_type, target_value, target_date, weightage, is_shared, shared_from_goal_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,$9) RETURNING *`,
+        [sheetId, thrust_area_id, title, description, uom_type, target_value || null, target_date || null, weightage, sourceGoalId]
       );
 
       await client.query(
         `INSERT INTO shared_goal_assignments (source_goal_id, assigned_to, employee_goal_id, weightage_override)
          VALUES ($1,$2,$3,$4)`,
-        [goalRes.rows[0].id, empId, goalRes.rows[0].id, weightage]
+        [sourceGoalId, empId, goalRes.rows[0].id, weightage]
       );
 
       results.push(goalRes.rows[0]);

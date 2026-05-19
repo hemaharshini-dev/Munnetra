@@ -341,6 +341,11 @@ Eight-tab dashboard:
 
 ## 8. API Reference
 
+> **Post-build bug fixes applied:**
+> - **Shared goal sync** (`sharedGoals.js`, `achievements.js`): Previously every recipient goal was its own source (`source_goal_id = employee_goal_id`, `is_shared=TRUE`), so actual-value sync never fired. Fixed by creating one canonical source goal (`is_shared=FALSE`) owned by the pusher; recipient copies point to it via `shared_from_goal_id`. Sync in `achievements.js` now correctly propagates actuals to all recipients.
+> - **Stale cycle year in escalation job** (`escalationJob.js`): `CYCLE_YEAR` was a module-level constant, causing wrong year if the server ran across a year boundary. Moved inside `runEscalations()` so it is computed fresh on every daily run.
+> - **Employee calling admin-only audit log** (`goalSheets.js`, `GoalSheet.js`): The rework-comment fetch was hitting `GET /api/admin/audit-log`, which returns 403 for employees. Added a dedicated `GET /api/goal-sheets/:id/rework-comment` endpoint (employee-accessible) and updated the frontend to use it.
+
 ### Auth
 | Method | Endpoint | Role | Description |
 |---|---|---|---|
@@ -358,6 +363,7 @@ Eight-tab dashboard:
 | GET | `/api/goal-sheets/mine` | Employee | Own sheet with goals |
 | POST | `/api/goal-sheets` | Employee | Create new sheet (goal_setting window required) |
 | POST | `/api/goal-sheets/:id/submit` | Employee | Submit for approval (goal_setting window required) |
+| GET | `/api/goal-sheets/:id/rework-comment` | Employee | Latest manager return comment for own sheet |
 | POST | `/api/goal-sheets/:sheetId/goals` | Employee | Add goal to sheet |
 | PUT | `/api/goal-sheets/goals/:id` | Employee | Edit own goal |
 | DELETE | `/api/goal-sheets/goals/:id` | Employee | Delete own goal |
@@ -574,6 +580,8 @@ All rules enforced at the backend — frontend provides UX feedback but cannot b
 | Port 5000 already in use | Change `PORT` in `.env` and update `frontend/src/api/client.js` baseURL |
 | `npm install` fails | Delete `node_modules/` and `package-lock.json`, then retry |
 | Shared goal actual is read-only | Expected — actual value syncs from the source goal owner only |
+| Rework comment not showing on employee goal sheet | Ensure you are running the latest backend — the fix replaced the admin audit-log call with `GET /api/goal-sheets/:id/rework-comment` |
+| Shared goal actuals not syncing to recipients | Ensure you re-seeded or re-pushed shared goals after the fix — old shared goals created before the fix have incorrect `source_goal_id` values |
 | Unlock button shows confirmation popup | By design — all unlocks require confirmation and are logged |
 | Analytics charts show no data | Log some achievements first, then click Refresh on the Analytics tab |
 | No escalations showing | Escalation job runs at 9 AM daily. Trigger manually via the API or wait for the next run |

@@ -9,14 +9,13 @@ const RULES = {
   level3_after_days:       3,
 };
 
-const CYCLE_YEAR = new Date().getFullYear();
-
 async function runEscalations() {
+  const CYCLE_YEAR = new Date().getFullYear();
   console.log('[EscalationJob] Running at', new Date().toISOString());
   try {
-    await checkGoalNotSubmitted();
-    await checkApprovalOverdue();
-    await checkCheckinOverdue();
+    await checkGoalNotSubmitted(CYCLE_YEAR);
+    await checkApprovalOverdue(CYCLE_YEAR);
+    await checkCheckinOverdue(CYCLE_YEAR);
     console.log('[EscalationJob] Done.');
   } catch (err) {
     console.error('[EscalationJob] Error:', err.message);
@@ -24,7 +23,7 @@ async function runEscalations() {
 }
 
 // Rule 1 — Employee has not submitted goals within N days of goal_setting window opening
-async function checkGoalNotSubmitted() {
+async function checkGoalNotSubmitted(CYCLE_YEAR) {
   const { rows: windows } = await pool.query(
     `SELECT * FROM check_in_windows
      WHERE action='goal_setting' AND cycle_year=$1
@@ -86,7 +85,7 @@ async function checkGoalNotSubmitted() {
 }
 
 // Rule 2 — Manager has not approved goals within N days of submission
-async function checkApprovalOverdue() {
+async function checkApprovalOverdue(CYCLE_YEAR) {
   const { rows: sheets } = await pool.query(
     `SELECT gs.*, u.manager_id FROM goal_sheets gs
      JOIN users u ON u.id = gs.employee_id
@@ -127,7 +126,7 @@ async function checkApprovalOverdue() {
 }
 
 // Rule 3 — Check-in not completed within N days before window closes
-async function checkCheckinOverdue() {
+async function checkCheckinOverdue(CYCLE_YEAR) {
   const { rows: windows } = await pool.query(
     `SELECT * FROM check_in_windows
      WHERE action='checkin' AND cycle_year=$1

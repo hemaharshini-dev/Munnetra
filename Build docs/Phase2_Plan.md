@@ -70,7 +70,8 @@ GET  /api/achievements/mine
 POST /api/achievements
      body: { goal_id, quarter, cycle_year, actual_value, actual_date, status }
      → upserts achievement, computes + stores progress_score
-     → syncs actual to linked shared goal recipients
+     → syncs actual to all recipient copies via shared_goal_assignments
+     → only fires sync when goal.is_shared=FALSE (canonical source goal)
 ```
 
 ### Manager — Check-in
@@ -81,6 +82,13 @@ GET  /api/manager/checkins/:sheetId?quarter=Q1
 POST /api/manager/checkins
      body: { goal_sheet_id, quarter, cycle_year, comment }
      → saves structured check-in comment (comment required)
+```
+
+### Employee — Rework Comment (new endpoint)
+```
+GET  /api/goal-sheets/:id/rework-comment
+     → returns { comment } — the latest manager return comment for the employee's own sheet
+     → employee-accessible only; replaces the previous (broken) call to /admin/audit-log
 ```
 
 ---
@@ -100,6 +108,8 @@ When the source goal owner saves an achievement:
 1. Backend looks up `shared_goal_assignments` where `source_goal_id = goal_id`
 2. Upserts the same `actual_value` / `actual_date` / `progress_score` into `goal_achievements` for every linked `employee_goal_id`
 3. `status` is NOT synced — each recipient sets their own
+
+**Data model (post bug-fix):** The pusher's canonical source goal has `is_shared=FALSE` and no `shared_from_goal_id`. Each recipient copy has `is_shared=TRUE` and `shared_from_goal_id` pointing to the source. Goals pushed before this fix have incorrect `source_goal_id` values and must be re-pushed.
 
 ---
 

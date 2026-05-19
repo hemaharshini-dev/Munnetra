@@ -156,9 +156,11 @@ GET  /api/admin/audit-log                    → view full audit trail
 ## 7. Shared Goals Logic
 
 1. Admin/Manager creates a "shared goal" with title, thrust area, target, and a list of recipient employees.
-2. System creates a goal entry on each recipient's goal sheet with `is_shared = true` and `shared_from_goal_id` pointing to the source.
+2. System creates one canonical **source goal** (`is_shared=FALSE`, owned by the pusher) and one recipient copy per employee (`is_shared=TRUE`, `shared_from_goal_id` → source goal id).
 3. Recipients can only change `weightage` — all other fields are read-only.
-4. When the primary owner logs achievement (Phase 2), it syncs to all linked goal records via `shared_from_goal_id`.
+4. When the source goal owner logs achievement (Phase 2), it syncs to all linked recipient goals via `shared_goal_assignments`.
+
+> **Bug fix (post-build):** The original implementation set `source_goal_id = employee_goal_id` for every recipient (each goal pointing to itself), and all goals were marked `is_shared=TRUE`. This meant the sync query (`WHERE source_goal_id = goal_id AND NOT is_shared`) never matched. Fixed in `sharedGoals.js` by creating a single source goal first, then recipient copies pointing to it.
 
 ---
 

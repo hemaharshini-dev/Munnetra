@@ -25,11 +25,8 @@ export default function EmployeeGoalSheet() {
     // Fetch manager's return comment if sheet is in rework
     if (data?.status === 'rework' && data?.id) {
       try {
-        const { data: log } = await api.get('/admin/audit-log');
-        const returnEntry = log.find(
-          e => e.goal_sheet_id === data.id && e.action === 'returned'
-        );
-        setReworkComment(returnEntry?.comment || '');
+        const { data: rc } = await api.get(`/goal-sheets/${data.id}/rework-comment`);
+        setReworkComment(rc.comment || '');
       } catch {
         // non-critical — silently ignore
       }

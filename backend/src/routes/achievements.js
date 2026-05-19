@@ -121,7 +121,8 @@ router.post('/', authenticate, requireRole('employee'), requireWindow('checkin')
     );
   }
 
-  // Sync actual to all shared goal recipients
+  // Sync actual to all shared goal recipients.
+  // The source goal is is_shared=FALSE; recipient copies have shared_from_goal_id pointing to it.
   if (!goal.is_shared) {
     const { rows: assignments } = await pool.query(
       `SELECT employee_goal_id FROM shared_goal_assignments WHERE source_goal_id = $1`,
@@ -141,6 +142,10 @@ router.post('/', authenticate, requireRole('employee'), requireWindow('checkin')
       );
     }
   }
+
+  // Also handle the case where a recipient logs status on their shared copy —
+  // block actual_value changes (already blocked above), but allow status updates.
+  // The guard above (shared_from_goal_id check) already returns 403 for actual changes.
 
   res.json(rows[0]);
 });
